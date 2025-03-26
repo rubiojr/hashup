@@ -1,4 +1,3 @@
-// hashub/cache.go
 package cache
 
 import (
@@ -10,7 +9,7 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/rubiojr/hashub/internal/log"
+	"github.com/rubiojr/hashup/internal/log"
 )
 
 // FileCache provides a fast in-memory cache for file metadata using fastcache
@@ -34,7 +33,7 @@ func DefaultCachePath() string {
 		panic("Failed to get user home directory")
 	}
 
-	dir := filepath.Join(home, ".cache", "hashub")
+	dir := filepath.Join(home, ".cache", "hashup")
 
 	err = os.MkdirAll(dir, 0755)
 	if err != nil {

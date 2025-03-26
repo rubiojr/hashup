@@ -18,7 +18,7 @@ To install HashUp, follow these steps:
 ### Installing the indexer
 
 ```
-go install github.com/rubiojr/hashub@latest
+go install github.com/rubiojr/hashup@latest
 ```
 
 ### Installing the web interface and CLI

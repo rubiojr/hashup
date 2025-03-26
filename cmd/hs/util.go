@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/cespare/xxhash/v2"
-	"github.com/rubiojr/hashub/cmd/hs/types"
+	"github.com/rubiojr/hashup/cmd/hs/types"
 )
 
 func dbConn(path string) (*sql.DB, error) {
@@ -35,8 +35,8 @@ func getDBPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %v", err)
 	}
-	dbDir := filepath.Join(homeDir, ".local", "share", "hashub")
-	return filepath.Join(dbDir, "hashub.db"), nil
+	dbDir := filepath.Join(homeDir, ".local", "share", "hashup")
+	return filepath.Join(dbDir, "hashup.db"), nil
 }
 
 func calculateXXHash(filePath string) (string, error) {

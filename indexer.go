@@ -12,11 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rubiojr/hashub/internal/config"
-	"github.com/rubiojr/hashub/internal/indexer"
-	"github.com/rubiojr/hashub/internal/log"
-	p "github.com/rubiojr/hashub/internal/pool"
-	"github.com/rubiojr/hashub/internal/processors/nats"
+	"github.com/rubiojr/hashup/internal/config"
+	"github.com/rubiojr/hashup/internal/indexer"
+	"github.com/rubiojr/hashup/internal/log"
+	p "github.com/rubiojr/hashup/internal/pool"
+	"github.com/rubiojr/hashup/internal/processors/nats"
 	"github.com/urfave/cli/v2"
 )
 

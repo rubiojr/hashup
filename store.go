@@ -12,15 +12,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rubiojr/hashub/internal/config"
-	"github.com/rubiojr/hashub/internal/log"
-	"github.com/rubiojr/hashub/internal/store"
+	"github.com/rubiojr/hashup/internal/config"
+	"github.com/rubiojr/hashup/internal/log"
+	"github.com/rubiojr/hashup/internal/store"
 	"github.com/urfave/cli/v2"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/nats-io/nats.go"
-	hsdb "github.com/rubiojr/hashub/internal/db"
-	natsp "github.com/rubiojr/hashub/internal/processors/nats"
+	hsdb "github.com/rubiojr/hashup/internal/db"
+	natsp "github.com/rubiojr/hashup/internal/processors/nats"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

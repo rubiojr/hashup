@@ -21,13 +21,13 @@ func Printf(format string, args ...interface{}) {
 }
 
 func Debugf(format string, args ...interface{}) {
-	if os.Getenv("HASHUB_DEBUG") != "" {
+	if os.Getenv("HASHUP_DEBUG") != "" {
 		logger.Printf(format, args...)
 	}
 }
 
 func Debug(args ...interface{}) {
-	if os.Getenv("HASHUB_DEBUG") != "" {
+	if os.Getenv("HASHUP_DEBUG") != "" {
 		logger.Println(args...)
 	}
 }

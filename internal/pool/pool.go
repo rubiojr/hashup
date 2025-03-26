@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rubiojr/hashub/internal/log"
+	"github.com/rubiojr/hashup/internal/log"
 )
 
 var pool *Pool

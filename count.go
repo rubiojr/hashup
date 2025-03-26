@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/rubiojr/hashub/internal/log"
+	"github.com/rubiojr/hashup/internal/log"
 )
 
 type FileCount struct {

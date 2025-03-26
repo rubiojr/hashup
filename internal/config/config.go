@@ -42,7 +42,7 @@ func DefaultConfig() Config {
 		Main: MainConfig{
 			NatsServerURL: "http://localhost:4222",
 			EncryptionKey: "",
-			NatsStream:    "HASHUB",
+			NatsStream:    "HASHUP",
 			NatsSubject:   "FILES",
 		},
 		Store: StoreConfig{
@@ -157,7 +157,7 @@ func getConfigDir() (string, error) {
 		return "", fmt.Errorf("failed to get home directory: %v", err)
 	}
 
-	return filepath.Join(homeDir, ".config", "hashub"), nil
+	return filepath.Join(homeDir, ".config", "hashup"), nil
 }
 
 func defaultDBPath() string {
@@ -165,5 +165,5 @@ func defaultDBPath() string {
 	if err != nil {
 		panic(err)
 	}
-	return filepath.Join(home, ".local", "share", "hashub", "hashub.db")
+	return filepath.Join(home, ".local", "share", "hashup", "hashup.db")
 }

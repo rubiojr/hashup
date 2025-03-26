@@ -15,9 +15,9 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/nats-io/nats.go"
-	"github.com/rubiojr/hashub/internal/cache"
-	"github.com/rubiojr/hashub/internal/errmsg"
-	"github.com/rubiojr/hashub/internal/log"
+	"github.com/rubiojr/hashup/internal/cache"
+	"github.com/rubiojr/hashup/internal/errmsg"
+	"github.com/rubiojr/hashup/internal/log"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

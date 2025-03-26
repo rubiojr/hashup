@@ -1,4 +1,3 @@
-// hashub/cmd/hs/tags.go
 package main
 
 import (

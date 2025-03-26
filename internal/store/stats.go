@@ -105,7 +105,7 @@ func (stats *ProcessStats) PrintStats() {
 	}
 
 	fmt.Println("\n-------------------------")
-	fmt.Printf("HASHUB STATS (%s)\n", elapsed.Round(time.Second))
+	fmt.Printf("HASHUP STATS (%s)\n", elapsed.Round(time.Second))
 	fmt.Println("-------------------------")
 	fmt.Printf("Messages received: %d (%.1f/sec)\n", stats.messagesReceived, msgsPerSec)
 	fmt.Printf("Records written:   %d (%.1f/sec)\n", stats.recordsWritten, writtenPerSec)

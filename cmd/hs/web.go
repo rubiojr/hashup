@@ -12,9 +12,9 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/rubiojr/hashub/cmd/hs/types"
-	"github.com/rubiojr/hashub/internal/config"
-	"github.com/rubiojr/hashub/internal/templates"
+	"github.com/rubiojr/hashup/cmd/hs/types"
+	"github.com/rubiojr/hashup/internal/config"
+	"github.com/rubiojr/hashup/internal/templates"
 	"github.com/urfave/cli/v2"
 )
 

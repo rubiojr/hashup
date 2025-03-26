@@ -1,4 +1,3 @@
-// hashub/cmd/hs/admin.go
 package main
 
 import (
@@ -8,7 +7,7 @@ import (
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
-	hsdb "github.com/rubiojr/hashub/internal/db"
+	hsdb "github.com/rubiojr/hashup/internal/db"
 	"github.com/urfave/cli/v2"
 )
 

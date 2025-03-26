@@ -5,7 +5,7 @@
 [main]
 nats_server_url = "http://localhost:4222"
 encryption_key  = ""
-#nats_stream    = "HASHUB"
+#nats_stream    = "HASHUP"
 #nats_subject   = "FILES"
 
 [store]

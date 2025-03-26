@@ -1,4 +1,4 @@
-module github.com/rubiojr/hashub
+module github.com/rubiojr/hashup
 
 go 1.23.4
 

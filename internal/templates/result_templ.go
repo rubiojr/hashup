@@ -11,7 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 	"github.com/dustin/go-humanize"
-	"github.com/rubiojr/hashub/cmd/hs/types"
+	"github.com/rubiojr/hashup/cmd/hs/types"
 	"path/filepath"
 )
 

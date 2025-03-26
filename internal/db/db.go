@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-//go:embed hashub.sql
+//go:embed hashup.sql
 var Schema string
 
 // Open a SQLite database with appropriate pragmas

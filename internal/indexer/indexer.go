@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/rubiojr/hashub/internal/log"
-	"github.com/rubiojr/hashub/internal/pool"
-	"github.com/rubiojr/hashub/internal/processors"
+	"github.com/rubiojr/hashup/internal/log"
+	"github.com/rubiojr/hashup/internal/pool"
+	"github.com/rubiojr/hashup/internal/processors"
 )
 
 var ignoredDirectories = []string{

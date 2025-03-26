@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/rqlite/gorqlite"
-	"github.com/rubiojr/hashub/internal/errmsg"
-	pnats "github.com/rubiojr/hashub/internal/processors/nats"
+	"github.com/rubiojr/hashup/internal/errmsg"
+	pnats "github.com/rubiojr/hashup/internal/processors/nats"
 )
 
 func TestProcessFile(t *testing.T) {
-	processor, err := pnats.NewNATSProcessor(os.Getenv("HASHUB_NATS_URL"), "hashub.files", time.Second)
+	processor, err := pnats.NewNATSProcessor(os.Getenv("HASHUP_NATS_URL"), "hashup.files", time.Second)
 	if err != nil {
 		t.Fatalf("Failed to create RQlite processor: %v", err)
 	}
