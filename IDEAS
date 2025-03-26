@@ -1,0 +1,3 @@
+* Use https://github.com/codeglyph/go-dotignore as ignore patters
+* Add support for pulling/pushing files to other computers, using content defined chunking
+* Use FTS5 to index notes for files

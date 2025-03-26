@@ -1,0 +1,117 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/urfave/cli/v2"
+)
+
+func main() {
+	app := &cli.App{
+		Name:  "hashub",
+		Usage: "File inventory tool",
+		Commands: []*cli.Command{
+			{
+				Name:    "index",
+				Aliases: []string{"i"},
+				Usage:   "Index files recursively",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "nats-url",
+						Usage:   "NATS URL",
+						EnvVars: []string{"HASHUB_NATS_URL"},
+					},
+					&cli.BoolFlag{
+						Name:  "debug",
+						Value: false,
+						Usage: "HASHUB_DEBUG",
+					},
+					&cli.StringFlag{
+						Name:  "ignore-file",
+						Value: "",
+						Usage: "List of files to ignore when indexing",
+					},
+					&cli.BoolFlag{
+						Name:  "ignore-hidden",
+						Value: true,
+						Usage: "Do not index hidden files and directories",
+					},
+					&cli.IntFlag{
+						Name:  "concurrency",
+						Usage: "Number of concurrent workers",
+					},
+					&cli.StringFlag{
+						Name:    "encryption-key",
+						Usage:   "Key to use for encryption (if empty, a random key is generated)",
+						EnvVars: []string{"HASHUB_ENCRYPTION_KEY"},
+					},
+				},
+				Action: func(c *cli.Context) error {
+					if c.Bool("debug") {
+						os.Setenv("HASHUB_DEBUG", "1")
+					}
+					return runIndexer(c)
+				},
+			},
+			{
+				Name:    "store",
+				Aliases: []string{"s"},
+				Usage:   "Start NATS consumer to store file metadata in the database",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "nats-url",
+						Aliases: []string{"n"},
+						Usage:   "NATS server URL",
+						EnvVars: []string{"HASHUB_NATS_URL"},
+					},
+					&cli.StringFlag{
+						Name:    "stream",
+						Usage:   "Stream to subscribe to",
+						EnvVars: []string{"HASHUB_NATS_STREAM"},
+					},
+					&cli.StringFlag{
+						Name:    "subject",
+						Usage:   "Subject to subscribe to",
+						EnvVars: []string{"HASHUB_NATS_SUBJECT"},
+					},
+					&cli.StringFlag{
+						Name:  "filter-host",
+						Usage: "Only store files from the given host",
+					},
+					&cli.StringFlag{
+						Name:    "db-path",
+						Aliases: []string{"d"},
+						Usage:   "Override default database path",
+						EnvVars: []string{"HASHUB_DB_PATH"},
+					},
+					&cli.StringFlag{
+						Name:    "encryption-key",
+						Usage:   "Encryption key to decrypt messages",
+						EnvVars: []string{"HASHUB_ENCRYPTION_KEY"},
+					},
+					&cli.BoolFlag{
+						Name:    "debug",
+						Usage:   "Debug mode",
+						EnvVars: []string{"HASHUB_DEBUG"},
+					},
+					&cli.IntFlag{
+						Name:    "stats-interval",
+						Usage:   "Interval in seconds to print statistics (0 to disable)",
+						EnvVars: []string{"HASHUB_STATS_INTERVAL"},
+					},
+				},
+				Action: func(c *cli.Context) error {
+					if c.Bool("debug") {
+						os.Setenv("HASHUB_DEBUG", "1")
+					}
+					return runStore(c)
+				},
+			},
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+	}
+}

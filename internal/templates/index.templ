@@ -1,0 +1,146 @@
+package templates
+
+templ Index() {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>HashUp Search</title>
+			<script src="https://unpkg.com/htmx.org@1.9.6"></script>
+			<style>
+			body {
+				font-family: system-ui, -apple-system, sans-serif;
+				max-width: 600px;
+				margin: 0 auto;
+				padding: 2rem;
+				background-color: #0f0f0f;
+				color: #d96f28;
+			}
+			.search-title {
+			    color: #d96f28;
+				font-weight: bold;
+				font-size: 2.5rem;
+			}
+			.search-container {
+				margin: 1rem 0;
+				text-align: center;
+			}
+			.search-input {
+				width: 100%;
+				/* max-width: 600px; */
+				padding: 12px;
+				font-size: 16px;
+				border: 1px solid #ddd;
+				border-radius: 24px;
+				outline: none;
+			}
+			.search-input:focus {
+				box-shadow: 0 0 0 2px rgba(0, 0, 255, 0.2);
+			}
+			.results-container {
+				margin-top: 1px;
+				/* max-width: 500px; */
+			}
+			.result {
+				padding-bottom: 20px;
+				color: #848482;
+				/*border-bottom: 1px solid #eee;*/
+			}
+			.result-title {
+				font-size: 1.4rem;
+				padding-bottom: 6px;
+                position: relative;
+                display: inline-block;
+                cursor: default;
+                color: #d9d9d8;
+			}
+			.result-url {
+				font-size: 0.85rem;
+				color: #006621;
+				margin-bottom: 0.3rem;
+			}
+			.result-item {
+				font-size: 0.9rem;
+			}
+			.result-field {
+				padding-right: 10px;
+			}
+			.result-field-header {
+				color: #d96f28;
+			}
+			.loading {
+				text-align: center;
+				padding: 1rem;
+				color: #949aae;
+			}
+			.no-results {
+				text-align: center;
+				padding: 1rem;
+				color: #666;
+			}
+			.tooltiptext .result-title {
+			    font-size: 1.5rem;
+			    padding-bottom: 24px;
+			}
+			.result-button {
+                color: #d96f28;
+                background-color: #0f0f0f;
+                border: 0px;
+                border-radius: 0.5em;
+                box-sizing: border-box;
+                font-family: "Inter var",ui-sans-serif,system-ui,-apple-system,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";
+                font-size: 1.3rem;
+                font-weight: 600;
+                line-height: 1.25rem;
+                text-align: center;
+                text-decoration: none #D1D5DB solid;
+                text-decoration-thickness: auto;
+                cursor: pointer;
+                user-select: none;
+                touch-action: manipulation;
+            }
+            .result-button:hover {
+                color: #21242c;
+            }
+            .result-button:focus {
+              outline: 2px solid transparent;
+              outline-offset: 2px;
+            }
+            .result-button:focus-visible {
+              box-shadow: none;
+            }
+            .tooltiptext {
+                padding: 40px;
+                border: 4px solid #d96f28;
+                background-color: #0f0f0f;
+                color: #fff;
+                text-align: center;
+                border-radius: 0.25em;
+                white-space: nowrap;
+                transition-property: visibility;
+                transition-delay: 0.5s;
+            }
+		</style>
+		</head>
+		<body>
+			<div class="search-container">
+				<h1 class="search-title">HashUp Search</h1>
+				<input
+					type="text"
+					name="q"
+					class="search-input"
+					placeholder="Search for files..."
+					hx-get="/search"
+					hx-trigger="input changed delay:700ms, search"
+					hx-target="#search-results"
+					hx-indicator="#loading"
+				/>
+			</div>
+			<div id="loading" class="loading htmx-indicator">
+				Searching...
+			</div>
+			<div id="search-results" class="results-container"></div>
+		</body>
+	</html>
+}

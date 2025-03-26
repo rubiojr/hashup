@@ -1,0 +1,35 @@
+package templates
+
+import (
+	"fmt"
+	"github.com/dustin/go-humanize"
+	"github.com/rubiojr/hashub/cmd/hs/types"
+	"path/filepath"
+)
+
+templ Results(results []*types.FileResult) {
+	if len(results) == 0 {
+		<div class="no-results">No results found</div>
+	} else {
+		for i, result := range results {
+			<div class="result">
+				<div class="result-title">
+					{ filepath.Base(result.FilePath) }
+					<button class="result-button" popovertarget={ fmt.Sprintf("tooltip-%d", i) }>🛈</button>
+				</div>
+				<div class="tooltiptext" popover id={ fmt.Sprintf("tooltip-%d", i) }>
+					<div class="result-title">{ filepath.Base(result.FilePath) }</div>
+					<div class="result-field"><span class="color-primary">Path:</span>{ result.FilePath }</div>
+				</div>
+				<div class="result-item">
+					<div>
+						<span class="result-field"><span class="result-field-header">Modified:</span> { result.ModifiedDate.Format("2006-01-02 15:04") }</span>
+						<span class="result-field"><span class="result-field-header">Host:</span> { result.Host }</span>
+						<span class="result-field"><span class="result-field-header">Size:</span> { humanize.Bytes(uint64(result.FileSize)) }</span>
+						<span class="result-field"><span class="result-field-header">Hash:</span> { result.FileHash }</span>
+					</div>
+				</div>
+			</div>
+		}
+	}
+}

@@ -1,0 +1,17 @@
+# config load order:
+# 1. command line arguments
+# 2. environment variables
+# 3. config file
+[main]
+nats_server_url = "http://localhost:4222"
+encryption_key  = ""
+#nats_stream    = "HASHUB"
+#nats_subject   = "FILES"
+
+[store]
+stats_interval = 30
+#db_path       =
+
+[indexer]
+indexing_interval     = 3600
+indexing_concurrency  = 5
