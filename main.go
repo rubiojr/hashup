@@ -112,14 +112,14 @@ func main() {
 				Name:  "nats",
 				Usage: "Start embedded NATS server",
 				Flags: []cli.Flag{
-					&cli.StringFlag{
+					&cli.IntFlag{
 						Name:  "port",
-						Value: "4222",
+						Value: 4222,
 						Usage: "Port to listen on",
 					},
-					&cli.StringFlag{
+					&cli.IntFlag{
 						Name:  "http-port",
-						Value: "8222",
+						Value: 8222,
 						Usage: "HTTP monitoring port (0 to disable)",
 					},
 					&cli.StringFlag{

@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
@@ -15,10 +13,6 @@ import (
 func startEmbeddedNATSServer(c *cli.Context) error {
 	opts := &server.Options{}
 
-	//opts.Port, _ = strconv.Atoi(c.String("port"))
-	//opts.HTTPPort, _ = strconv.Atoi(c.String("http-port"))
-
-	// Configure debug and trace options
 	opts.Debug = c.Bool("debug")
 	opts.Trace = c.Bool("trace")
 
@@ -33,9 +27,20 @@ func startEmbeddedNATSServer(c *cli.Context) error {
 	}
 	opts.ProcessConfigFile(conf)
 
-	// Set up the data directory for JetStream if specified
+	if c.Int("port") != 0 {
+		opts.Port = c.Int("port")
+	}
+
+	if c.Int("http-port") != 0 {
+		opts.HTTPPort = c.Int("http-port")
+	}
+
 	dataDir := c.String("data-dir")
 	if dataDir == "" {
+		opts.StoreDir = dataDir
+	}
+
+	if opts.StoreDir == "" {
 		dataDir = filepath.Join(homeDir, ".local", "share", "hashup", "nats")
 	}
 
@@ -47,25 +52,22 @@ func startEmbeddedNATSServer(c *cli.Context) error {
 		opts.StoreDir = dataDir
 	}
 
+	// This is required for HashUp
 	opts.JetStream = true
 
-	// Create and start the NATS server
 	ns, err := server.NewServer(opts)
 	if err != nil {
 		return fmt.Errorf("failed to create NATS server: %v", err)
 	}
 
-	// Configure logging
 	ns.ConfigureLogger()
 
-	// Start the server
 	go ns.Start()
 
 	if !ns.ReadyForConnections(10 * time.Second) {
 		return fmt.Errorf("NATS server failed to start in time")
 	}
 
-	// Print server info
 	fmt.Printf("NATS server is running on port %d\n", opts.Port)
 	if opts.HTTPPort > 0 {
 		fmt.Printf("HTTP monitoring available on port %d\n", opts.HTTPPort)
@@ -74,17 +76,10 @@ func startEmbeddedNATSServer(c *cli.Context) error {
 		fmt.Printf("JetStream is enabled with storage in: %s\n", opts.StoreDir)
 	}
 
-	// Setup signal handler for graceful shutdown
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-
 	fmt.Println("Press Ctrl+C to stop the server")
-
-	// Wait for signal
-	<-signalChan
+	ns.WaitForShutdown()
 
 	fmt.Println("\nShutting down NATS server...")
-	ns.Shutdown()
 
 	return nil
 }
