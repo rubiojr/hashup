@@ -61,7 +61,7 @@ func LoadConfig(path string) (*Config, error) {
 	config := DefaultConfig()
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return &config, nil
+		return nil, fmt.Errorf("config file not found")
 	}
 
 	_, err := toml.DecodeFile(path, &config)
