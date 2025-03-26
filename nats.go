@@ -27,10 +27,11 @@ func startEmbeddedNATSServer(c *cli.Context) error {
 		panic(err)
 	}
 
-	opts.ConfigFile = c.String("config-file")
+	conf := c.String("config")
 	if opts.ConfigFile == "" {
-		opts.ConfigFile = filepath.Join(homeDir, ".config", "hashup", "nats.conf")
+		conf = filepath.Join(homeDir, ".config", "hashup", "nats.conf")
 	}
+	opts.ProcessConfigFile(conf)
 
 	// Set up the data directory for JetStream if specified
 	dataDir := c.String("data-dir")

@@ -123,7 +123,7 @@ func main() {
 						Usage: "HTTP monitoring port (0 to disable)",
 					},
 					&cli.StringFlag{
-						Name:  "config-file",
+						Name:  "config",
 						Usage: "Path to the configuration file",
 						Value: "",
 					},
