@@ -108,6 +108,50 @@ func main() {
 					return runStore(c)
 				},
 			},
+			{
+				Name:  "nats",
+				Usage: "Start embedded NATS server",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "port",
+						Value: "4222",
+						Usage: "Port to listen on",
+					},
+					&cli.StringFlag{
+						Name:  "http-port",
+						Value: "8222",
+						Usage: "HTTP monitoring port (0 to disable)",
+					},
+					&cli.StringFlag{
+						Name:  "config-file",
+						Usage: "Path to the configuration file",
+						Value: "",
+					},
+					&cli.StringFlag{
+						Name:  "data-dir",
+						Usage: "Directory to store NATS data",
+						Value: "",
+					},
+					&cli.BoolFlag{
+						Name:  "jetstream",
+						Value: true,
+						Usage: "Enable JetStream",
+					},
+					&cli.BoolFlag{
+						Name:  "debug",
+						Value: false,
+						Usage: "Enable debug logging",
+					},
+					&cli.BoolFlag{
+						Name:  "trace",
+						Value: false,
+						Usage: "Enable trace logging",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					return startEmbeddedNATSServer(c)
+				},
+			},
 		},
 	}
 
