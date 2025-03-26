@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS file_notes (
 
 CREATE INDEX IF NOT EXISTS idx_file_path ON file_info (file_path);
 
+CREATE INDEX IF NOT EXISTS idx_file_size ON file_info (file_size);
+
 CREATE INDEX IF NOT EXISTS idx_extension ON file_info (extension);
 
 CREATE INDEX IF NOT EXISTS idx_file_hash ON file_info (file_hash);
