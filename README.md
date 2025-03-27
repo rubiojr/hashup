@@ -10,6 +10,7 @@ Distributed file indexing system.
 HashUp indexes files and associated metadata (size, modification time, etc) across multiple nodes, like laptops, NAS servers, and other storage services, then provide you an easy way to search and manage your files.
 
 ![Screenshot](/docs/screenshot.png)
+_HashUp App from https://github.com/rubiojr/hashup-app_
 
 ## Quickstart
 
