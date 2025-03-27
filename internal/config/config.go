@@ -47,7 +47,7 @@ func DefaultConfig() Config {
 		},
 		Store: StoreConfig{
 			StatsInterval: 30,
-			DBPath:        defaultDBPath(),
+			DBPath:        DefaultDBPath(),
 		},
 		Indexer: IndexerConfig{
 			IndexingInterval:    3600, // 1 hour in seconds
@@ -108,7 +108,7 @@ func LoadConfigFromCLI(ctx *cli.Context) (*Config, error) {
 
 // LoadDefaultConfig loads the configuration from the default path
 func LoadDefaultConfig() (*Config, error) {
-	configDir, err := getConfigDir()
+	configDir, err := DefaultConfigDir()
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func SaveConfig(config *Config, path string) error {
 
 // SaveDefaultConfig saves the configuration to the default path
 func SaveDefaultConfig(config *Config) error {
-	configDir, err := getConfigDir()
+	configDir, err := DefaultConfigDir()
 	if err != nil {
 		return err
 	}
@@ -150,8 +150,8 @@ func SaveDefaultConfig(config *Config) error {
 	return SaveConfig(config, configPath)
 }
 
-// getConfigDir returns the configuration directory path
-func getConfigDir() (string, error) {
+// DefaultConfigDir returns the configuration directory path
+func DefaultConfigDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %v", err)
@@ -160,10 +160,29 @@ func getConfigDir() (string, error) {
 	return filepath.Join(homeDir, ".config", "hashup"), nil
 }
 
-func defaultDBPath() string {
+// DefaultDBPath returns the default database path
+func DefaultDBPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
 	return filepath.Join(home, ".local", "share", "hashup", "hashup.db")
+}
+
+// DefaultDBDir returns the default database directory path
+func DefaultDBDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Join(home, ".local", "share", "hashup")
+}
+
+// DefaultNATSDataDir returns the default NATS data directory path
+func DefaultNATSDataDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Join(home, ".local", "share", "hashup", "nats")
 }

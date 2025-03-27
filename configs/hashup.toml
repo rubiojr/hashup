@@ -1,16 +1,12 @@
-# config load order:
-# 1. command line arguments
-# 2. environment variables
-# 3. config file
 [main]
-nats_server_url = "http://localhost:4222"
-encryption_key  = ""
-#nats_stream    = "HASHUP"
-#nats_subject   = "FILES"
+nats_server_url = "http://user:secret@localhost:4222"
+encryption_key  = "super-secret-key"
+nats_stream    = "HASHUP"
+nats_subject   = "FILES"
 
 [store]
 stats_interval = 30
-#db_path       =
+#db_path       = # defaults to ~/.local/share/hashup
 
 [indexer]
 indexing_interval     = 3600

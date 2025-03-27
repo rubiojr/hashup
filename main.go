@@ -1,11 +1,17 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
 
+	_ "embed"
+
 	"github.com/urfave/cli/v2"
 )
+
+//go:embed configs
+var configFiles embed.FS
 
 func main() {
 	app := &cli.App{
@@ -114,12 +120,10 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.IntFlag{
 						Name:  "port",
-						Value: 4222,
 						Usage: "Port to listen on",
 					},
 					&cli.IntFlag{
 						Name:  "http-port",
-						Value: 8222,
 						Usage: "HTTP monitoring port (0 to disable)",
 					},
 					&cli.StringFlag{
@@ -150,6 +154,20 @@ func main() {
 				},
 				Action: func(c *cli.Context) error {
 					return startEmbeddedNATSServer(c)
+				},
+			},
+			{
+				Name:  "setup",
+				Usage: "Setup initial configuration files",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "force",
+						Usage: "Overwrite existing configuration files",
+						Value: false,
+					},
+				},
+				Action: func(c *cli.Context) error {
+					return setupConfig(c.Bool("force"))
 				},
 			},
 		},

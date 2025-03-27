@@ -1,1 +1,3 @@
 * Normalize extension names when storing them to the database
+* hashup index command should handle nats server reconnects
+* Cache file stats when updating the database
