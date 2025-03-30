@@ -94,7 +94,7 @@ func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 		rootDir:      rootDir,
 		ignoreList:   []string{},
 		ignoreHidden: true,
-		pool:         pool.NewPool(10),
+		pool:         pool.NewPool(5),
 		// TODO: context propagagion
 		cache: cache.NewFileCache(context.Background(), 100, cache.DefaultCachePath()),
 	}
@@ -193,38 +193,38 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 			}
 		}
 
-		// Calculate file hash
-		fileHash, err := util.ComputeFileHash(absPath)
-		if err != nil {
-			return fmt.Errorf("error computing xxhash for %q: %v", path, err)
-		}
-
-		if s.cache.IsFileProcessed(absPath, fileHash) {
-			log.Debugf("File %s already processed", path)
-			return nil
-		}
-
-		// Extract file extension
-		ext := filepath.Ext(path)
-		if ext != "" {
-			ext = ext[1:] // Remove the dot
-		}
-
-		if filepath.Base(path) == filepath.Ext(path) {
-			ext = ""
-		}
-
-		// Create the message
-		msg := types.ScannedFile{
-			Path:      path,
-			Size:      info.Size(),
-			ModTime:   info.ModTime(),
-			Hash:      fileHash,
-			Extension: ext,
-			Hostname:  hostname,
-		}
-
 		f := func() error {
+			// Calculate file hash
+			fileHash, err := util.ComputeFileHash(absPath)
+			if err != nil {
+				return fmt.Errorf("error computing xxhash for %q: %v", path, err)
+			}
+
+			if s.cache.IsFileProcessed(absPath, fileHash) {
+				log.Debugf("File %s already processed", path)
+				return nil
+			}
+
+			// Extract file extension
+			ext := filepath.Ext(path)
+			if ext != "" {
+				ext = ext[1:] // Remove the dot
+			}
+
+			if filepath.Base(path) == filepath.Ext(path) {
+				ext = ""
+			}
+
+			// Create the message
+			msg := types.ScannedFile{
+				Path:      path,
+				Size:      info.Size(),
+				ModTime:   info.ModTime(),
+				Hash:      fileHash,
+				Extension: ext,
+				Hostname:  hostname,
+			}
+
 			err = processor.Process(absPath, msg)
 			if err != nil {
 				if ctx.Err() != nil {
