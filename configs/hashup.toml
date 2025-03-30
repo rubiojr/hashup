@@ -5,7 +5,7 @@ nats_stream    = "HASHUP"
 nats_subject   = "FILES"
 
 [store]
-stats_interval = 30
+stats_interval = 15
 #db_path       = # defaults to ~/.local/share/hashup
 
 [scanner]
