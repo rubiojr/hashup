@@ -250,7 +250,7 @@ func jsonStats(estats *ExtensionStats, host string, limit int) (string, error) {
 
 func printStats(estats *ExtensionStats, host string, limit int) {
 	stats := estats.Stats
-	totalCount := len(stats)
+	totalCount := estats.TotalCount
 
 	var otherCount, otherSize int64
 	if len(stats) > limit {
