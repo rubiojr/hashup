@@ -8,6 +8,6 @@ nats_subject   = "FILES"
 stats_interval = 30
 #db_path       = # defaults to ~/.local/share/hashup
 
-[indexer]
-indexing_interval     = 3600
-indexing_concurrency  = 5
+[scanner]
+scanning_interval     = 3600
+scanning_concurrency  = 5

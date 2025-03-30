@@ -19,9 +19,9 @@ func main() {
 		Usage: "File inventory tool",
 		Commands: []*cli.Command{
 			{
-				Name:    "index",
+				Name:    "scan",
 				Aliases: []string{"i"},
-				Usage:   "Index files recursively",
+				Usage:   "Scan files recursively",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "nats-url",
@@ -36,12 +36,12 @@ func main() {
 					&cli.StringFlag{
 						Name:  "ignore-file",
 						Value: "",
-						Usage: "List of files to ignore when indexing",
+						Usage: "List of files to ignore when scanning",
 					},
 					&cli.BoolFlag{
 						Name:  "ignore-hidden",
 						Value: true,
-						Usage: "Do not index hidden files and directories",
+						Usage: "Do not scann hidden files and directories",
 					},
 					&cli.IntFlag{
 						Name:  "concurrency",
@@ -57,7 +57,7 @@ func main() {
 					if c.Bool("debug") {
 						os.Setenv("HASHUP_DEBUG", "1")
 					}
-					return runIndexer(c)
+					return runScanner(c)
 				},
 			},
 			{

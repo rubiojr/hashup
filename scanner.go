@@ -13,14 +13,14 @@ import (
 	"time"
 
 	"github.com/rubiojr/hashup/internal/config"
-	"github.com/rubiojr/hashup/internal/indexer"
 	"github.com/rubiojr/hashup/internal/log"
 	p "github.com/rubiojr/hashup/internal/pool"
 	"github.com/rubiojr/hashup/internal/processors/nats"
+	"github.com/rubiojr/hashup/internal/scanner"
 	"github.com/urfave/cli/v2"
 )
 
-func runIndexer(clictx *cli.Context) error {
+func runScanner(clictx *cli.Context) error {
 	cfg, err := config.LoadConfigFromCLI(clictx)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
@@ -69,7 +69,7 @@ func runIndexer(clictx *cli.Context) error {
 		}
 	}()
 
-	pool := p.NewPool(cfg.Indexer.IndexingConcurrency)
+	pool := p.NewPool(cfg.Scanner.ScanningConcurrency)
 	pool.Start()
 
 	var ignoreList []string
@@ -117,7 +117,7 @@ func runIndexer(clictx *cli.Context) error {
 	go func() {
 		startTime := time.Now()
 		fmt.Printf("Starting directory scan in %s...\n", rootDir)
-		count, err := indexer.ScanDirectory(ctx, processor, rootDir, ignoreList, clictx.Bool("ignore-hidden"), pool, pCount)
+		count, err := scanner.ScanDirectory(ctx, processor, rootDir, ignoreList, clictx.Bool("ignore-hidden"), pool, pCount)
 		if err != nil {
 			log.Errorf("error scanning directory: %v", err)
 		}

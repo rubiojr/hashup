@@ -20,10 +20,10 @@ hashup setup
 hashup nats
 ```
 
-4. Index a directory
+4. Scan a directory
 
 ```bash
-hashup index ~/Documents # Scan and queue the scanned files to be indexed
+hashup scan ~/Documents # Scan and queue the scanned files to be indexed
 
 # This can run in parallel
 hashup store

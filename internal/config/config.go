@@ -13,7 +13,7 @@ import (
 type Config struct {
 	Main    MainConfig    `toml:"main"`
 	Store   StoreConfig   `toml:"store"`
-	Indexer IndexerConfig `toml:"indexer"`
+	Scanner ScannerConfig `toml:"scanner"`
 }
 
 // MainConfig represents the main configuration section
@@ -30,10 +30,10 @@ type StoreConfig struct {
 	DBPath        string `toml:"db_path"`
 }
 
-// IndexerConfig represents the indexer configuration section
-type IndexerConfig struct {
-	IndexingInterval    int `toml:"indexing_interval"`
-	IndexingConcurrency int `toml:"indexing_concurrency"`
+// ScannerConfig represents the scanner configuration section
+type ScannerConfig struct {
+	ScanningInterval    int `toml:"scanning_interval"`
+	ScanningConcurrency int `toml:"scanning_concurrency"`
 }
 
 // DefaultConfig returns a configuration with default values
@@ -49,9 +49,9 @@ func DefaultConfig() Config {
 			StatsInterval: 30,
 			DBPath:        DefaultDBPath(),
 		},
-		Indexer: IndexerConfig{
-			IndexingInterval:    3600, // 1 hour in seconds
-			IndexingConcurrency: 5,
+		Scanner: ScannerConfig{
+			ScanningInterval:    3600, // 1 hour in seconds
+			ScanningConcurrency: 5,
 		},
 	}
 }
