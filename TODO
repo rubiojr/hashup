@@ -2,3 +2,4 @@
 * hashup index command should handle nats server reconnects
 * Cache file stats when updating the database
 * Remote search: use a remote node for file search, which means the remote node should have a copy of the file database
+* Config migrations: figure out how to migrate to newer nats and hashup config versions
