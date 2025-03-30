@@ -37,7 +37,6 @@ type natsProcessor struct {
 	responseSub  string
 	responsesSub *nats.Subscription
 	timeout      time.Duration
-	waitForAck   bool   // field to control acknowledgment behavior
 	encryptKey   []byte // AES encryption key (only used if encrypt is true)
 	encrypt      bool   // field to control encryption behavior
 	cache        *cache.FileCache
@@ -47,13 +46,6 @@ type natsProcessor struct {
 
 // Options for configuring the NATS processor
 type Option func(*natsProcessor)
-
-// WithWaitForAck configures whether the processor should wait for acknowledgment
-func WithWaitForAck(wait bool) Option {
-	return func(np *natsProcessor) {
-		np.waitForAck = wait
-	}
-}
 
 func WithStatsChannel(ch chan Stats) Option {
 	return func(np *natsProcessor) {
@@ -121,8 +113,8 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 		subjectName: subject,
 		responseSub: responseSub,
 		timeout:     timeout,
-		waitForAck:  true, // default to waiting for acknowledgment
 		encrypt:     true, // default to no encryption
+
 	}
 
 	// Apply options
