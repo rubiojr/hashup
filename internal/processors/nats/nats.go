@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/cespare/xxhash/v2"
@@ -15,26 +14,13 @@ import (
 	"github.com/rubiojr/hashup/internal/crypto"
 	"github.com/rubiojr/hashup/internal/errmsg"
 	"github.com/rubiojr/hashup/internal/log"
+	"github.com/rubiojr/hashup/internal/types"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Stats struct {
 	SkippedFiles uint8
 	IndexedFiles uint8
-}
-
-// FileMessage represents the structure of the message sent to NATS
-type FileMessage struct {
-	Path       string    `msgpack:"path"`
-	Size       int64     `msgpack:"size"`
-	ModTime    time.Time `msgpack:"mod_time"`
-	Hash       string    `msgpack:"hash"`
-	Extension  string    `msgpack:"extension"`
-	Hostname   string    `msgpack:"hostname"`
-	IsRegular  bool      `msgpack:"is_regular"`
-	IsDir      bool      `msgpack:"is_dir"`
-	RequestID  string    `msgpack:"request_id"`
-	ResponseTo string    `msgpack:"response_to"`
 }
 
 // ProcessResponse represents the response from the NATS consumer
@@ -87,8 +73,6 @@ func WithEncryptionKey(key string) Option {
 
 // Update NewNATSProcessor to use JetStream and support optional encryption
 func NewNATSProcessor(ctx context.Context, url, streamName, subject string, timeout time.Duration, opts ...Option) (*natsProcessor, error) {
-	cache := cache.NewFileCache(ctx, 100, cache.DefaultCachePath())
-
 	nc, err := nats.Connect(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to NATS: %v", err)
@@ -139,7 +123,6 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 		timeout:     timeout,
 		waitForAck:  true, // default to waiting for acknowledgment
 		encrypt:     true, // default to no encryption
-		cache:       cache,
 	}
 
 	// Apply options
@@ -161,51 +144,13 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 }
 
 // Process method with optional encryption
-func (np *natsProcessor) Process(path string, info os.FileInfo, hostname string) error {
+func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
 	stats := Stats{SkippedFiles: 1}
 	defer func() {
 		if np.statsChan != nil {
 			np.statsChan <- stats
 		}
 	}()
-
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("%s: %w", path, errmsg.ErrNotRegularFile)
-	}
-
-	// Generate a unique request ID
-	requestID := nats.NewInbox()
-
-	// Calculate file hash
-	fileHash, err := computeFileHash(path)
-	if err != nil {
-		return fmt.Errorf("error computing xxhash for %q: %v", path, err)
-	}
-
-	if np.cache.IsFileProcessed(path, fileHash) {
-		log.Debugf("File %s already processed", path)
-		return nil
-	}
-
-	// Extract file extension
-	ext := filepath.Ext(path)
-	if ext != "" {
-		ext = ext[1:] // Remove the dot
-	}
-
-	// Create the message
-	msg := FileMessage{
-		Path:       path,
-		Size:       info.Size(),
-		ModTime:    info.ModTime(),
-		Hash:       fileHash,
-		Extension:  ext,
-		Hostname:   hostname,
-		IsRegular:  info.Mode().IsRegular(),
-		IsDir:      info.IsDir(),
-		RequestID:  requestID,
-		ResponseTo: np.responseSub,
-	}
 
 	// Marshal the message using MessagePack
 	plainData, err := msgpack.Marshal(msg)
@@ -242,7 +187,6 @@ func (np *natsProcessor) Process(path string, info os.FileInfo, hostname string)
 		return fmt.Errorf("failed to publish message: %w", errmsg.ErrPublishFailed)
 	}
 
-	np.cache.MarkFileProcessed(path, fileHash)
 	stats.IndexedFiles++
 	stats.SkippedFiles = 0
 
@@ -253,9 +197,6 @@ func (np *natsProcessor) Process(path string, info os.FileInfo, hostname string)
 func (np *natsProcessor) Close() {
 	if np.nc != nil && !np.nc.IsClosed() {
 		np.nc.Close()
-	}
-	if err := np.cache.Save(); err != nil {
-		log.Errorf("failed to save cache: %v", err)
 	}
 	close(np.statsChan)
 }

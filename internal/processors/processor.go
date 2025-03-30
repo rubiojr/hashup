@@ -1,7 +1,7 @@
 package processors
 
-import "os"
+import "github.com/rubiojr/hashup/internal/types"
 
 type Processor interface {
-	Process(path string, info os.FileInfo, hostname string) error
+	Process(path string, msg types.ScannedFile) error
 }

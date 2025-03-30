@@ -14,12 +14,12 @@ import (
 	"github.com/rubiojr/hashup/internal/crypto"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/store"
+	"github.com/rubiojr/hashup/internal/types"
 	"github.com/urfave/cli/v2"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/nats-io/nats.go"
 	hsdb "github.com/rubiojr/hashup/internal/db"
-	natsp "github.com/rubiojr/hashup/internal/processors/nats"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -147,7 +147,7 @@ func runStore(clictx *cli.Context) error {
 					plaintext = msg.Data
 				}
 
-				var fileMsg natsp.FileMessage
+				var fileMsg *types.ScannedFile
 
 				// Unmarshal using MessagePack
 				if err := msgpack.Unmarshal(plaintext, &fileMsg); err != nil {
@@ -180,16 +180,6 @@ func runStore(clictx *cli.Context) error {
 					stats.IncrementAlreadyPresent() // File already exists and wasn't updated
 				}
 
-				// Create a response
-				response := natsp.ProcessResponse{
-					RequestID: fileMsg.RequestID,
-					Success:   err == nil, // Success is true if there was no error
-				}
-
-				if err != nil {
-					response.Error = err.Error()
-				}
-
 				msg.Ack()
 			}
 		}
@@ -211,7 +201,7 @@ func runStore(clictx *cli.Context) error {
 }
 
 // Modified to return whether a new record was written
-func saveFileToDatabase(db *sql.DB, fileMsg natsp.FileMessage) (bool, error) {
+func saveFileToDatabase(db *sql.DB, fileMsg *types.ScannedFile) (bool, error) {
 	// Track if we've written a new record
 	recordWritten := false
 

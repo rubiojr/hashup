@@ -14,7 +14,6 @@ import (
 
 	"github.com/rubiojr/hashup/internal/config"
 	"github.com/rubiojr/hashup/internal/log"
-	p "github.com/rubiojr/hashup/internal/pool"
 	"github.com/rubiojr/hashup/internal/processors/nats"
 	"github.com/rubiojr/hashup/internal/scanner"
 	"github.com/urfave/cli/v2"
@@ -43,6 +42,7 @@ func runScanner(clictx *cli.Context) error {
 	if !clictx.Bool("debug") {
 		log.SetOutput(io.Discard)
 	}
+
 	var fileCount int64
 	// Count the number of files to be indexed
 	go func() {
@@ -55,10 +55,24 @@ func runScanner(clictx *cli.Context) error {
 		}
 	}()
 
-	pCount := make(chan int64, 1000)
+	var ignoreList []string
+	if clictx.String("ignore-file") != "" {
+		var err error
+		ignoreList, err = readIgnoreList(clictx.String("ignore-file"))
+		if err != nil {
+			return fmt.Errorf("failed to read ignore list: %v", err)
+		}
+	}
+
+	scannerOpts := []scanner.Option{
+		scanner.WithIgnoreList(ignoreList),
+		scanner.WithIgnoreHidden(clictx.Bool("ignore-hidden")),
+	}
+	scanner := scanner.NewDirectoryScanner(rootDir, scannerOpts...)
+
 	var pCounter int64
 	go func() {
-		for range pCount {
+		for range scanner.CounterChan() {
 			pCounter++
 			if fileCount != 0 {
 				percent := float64(pCounter) / float64(fileCount) * 100
@@ -69,17 +83,6 @@ func runScanner(clictx *cli.Context) error {
 		}
 	}()
 
-	pool := p.NewPool(cfg.Scanner.ScanningConcurrency)
-	pool.Start()
-
-	var ignoreList []string
-	if clictx.String("ignore-file") != "" {
-		var err error
-		ignoreList, err = readIgnoreList(clictx.String("ignore-file"))
-		if err != nil {
-			return fmt.Errorf("failed to read ignore list: %v", err)
-		}
-	}
 	var processorOpts []nats.Option
 	statsChan := make(chan nats.Stats, 1000)
 	var processedFiles int64
@@ -117,7 +120,8 @@ func runScanner(clictx *cli.Context) error {
 	go func() {
 		startTime := time.Now()
 		fmt.Printf("Starting directory scan in %s...\n", rootDir)
-		count, err := scanner.ScanDirectory(ctx, processor, rootDir, ignoreList, clictx.Bool("ignore-hidden"), pool, pCount)
+
+		count, err := scanner.ScanDirectory(ctx, processor)
 		if err != nil {
 			log.Errorf("error scanning directory: %v", err)
 		}

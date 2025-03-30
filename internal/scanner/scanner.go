@@ -2,14 +2,19 @@ package scanner
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 
+	"github.com/cespare/xxhash/v2"
+	"github.com/rubiojr/hashup/internal/cache"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/pool"
 	"github.com/rubiojr/hashup/internal/processors"
+	"github.com/rubiojr/hashup/internal/types"
 )
 
 var ignoredDirectories = []string{
@@ -47,8 +52,67 @@ var ignoredDirectories = []string{
 
 var ignoredFiles = []string{".DS_Store", "Thumbs.db", ".localized"}
 
-func ScanDirectory(ctx context.Context, processor processors.Processor, rootDir string, ignoreList []string, ignoreHidden bool, pool *pool.Pool, pCount chan int64) (int64, error) {
-	defer pool.Stop()
+type DirectoryScanner struct {
+	rootDir      string
+	ignoreList   []string
+	ignoreHidden bool
+	pool         *pool.Pool
+	pCount       chan int64
+	cache        *cache.FileCache
+}
+
+// Options for configuring the NATS processor
+type Option func(*DirectoryScanner)
+
+// WithIgnoreList configures whether the processor should wait for acknowledgment
+func WithIgnoreList(ignoreList []string) Option {
+	return func(s *DirectoryScanner) {
+		s.ignoreList = ignoreList
+	}
+}
+
+func WithScanningConcurrency(concurrency int) Option {
+	return func(s *DirectoryScanner) {
+		s.pool = pool.NewPool(concurrency)
+		s.pool.Start()
+	}
+}
+
+func WithIgnoreHidden(ignoreHidden bool) Option {
+	return func(s *DirectoryScanner) {
+		s.ignoreHidden = ignoreHidden
+	}
+}
+
+func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
+
+	scanner := &DirectoryScanner{
+		rootDir:      rootDir,
+		ignoreList:   []string{},
+		ignoreHidden: true,
+		pCount:       make(chan int64),
+		pool:         pool.NewPool(10),
+	}
+
+	// apply options
+	for _, option := range options {
+		option(scanner)
+	}
+
+	scanner.pool.Start()
+
+	return scanner
+}
+
+func (s *DirectoryScanner) CounterChan() chan int64 {
+	return s.pCount
+}
+
+func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processors.Processor) (int64, error) {
+	s.cache = cache.NewFileCache(ctx, 100, cache.DefaultCachePath())
+	defer s.pool.Stop()
+	defer s.cache.Save()
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "unknown"
@@ -56,18 +120,18 @@ func ScanDirectory(ctx context.Context, processor processors.Processor, rootDir 
 
 	var count int64
 
-	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(s.rootDir, func(path string, info os.FileInfo, err error) error {
 		// Check if the context has been cancelled
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 
-		if ignoreHidden && info.IsDir() && len(info.Name()) > 1 && info.Name()[0] == '.' {
+		if s.ignoreHidden && info.IsDir() && len(info.Name()) > 1 && info.Name()[0] == '.' {
 			log.Printf("ignoring hidden directory: %s", path)
 			return filepath.SkipDir
 		}
 
-		if ignoreHidden && info.Name()[0] == '.' {
+		if s.ignoreHidden && info.Name()[0] == '.' {
 			log.Printf("ignoring hidden file: %s", path)
 			return nil
 		}
@@ -103,7 +167,7 @@ func ScanDirectory(ctx context.Context, processor processors.Processor, rootDir 
 		}
 
 		// ignoreList is a list of regular expressions to ignore
-		for _, pattern := range ignoreList {
+		for _, pattern := range s.ignoreList {
 			matched, _ := regexp.MatchString(pattern, absPath)
 			if matched {
 				log.Printf("ignoring path match %s", path)
@@ -114,22 +178,67 @@ func ScanDirectory(ctx context.Context, processor processors.Processor, rootDir 
 			}
 		}
 
+		// Calculate file hash
+		fileHash, err := computeFileHash(absPath)
+		if err != nil {
+			return fmt.Errorf("error computing xxhash for %q: %v", path, err)
+		}
+
+		if s.cache.IsFileProcessed(absPath, fileHash) {
+			log.Debugf("File %s already processed", path)
+			return nil
+		}
+
+		// Extract file extension
+		ext := filepath.Ext(path)
+		if ext != "" {
+			ext = ext[1:] // Remove the dot
+		}
+
+		// Create the message
+		msg := types.ScannedFile{
+			Path:      path,
+			Size:      info.Size(),
+			ModTime:   info.ModTime(),
+			Hash:      fileHash,
+			Extension: ext,
+			Hostname:  hostname,
+		}
+
 		f := func() error {
-			pCount <- 1
-			err = processor.Process(absPath, info, hostname)
+			s.pCount <- 1
+			err = processor.Process(absPath, msg)
 			if err != nil {
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
 				log.Errorf("failed processing %q: %v", path, err)
 			}
+			s.cache.MarkFileProcessed(path, fileHash)
 			return nil
 		}
 
 		count++
-		pool.Submit(f)
+		s.pool.Submit(f)
 		return nil
 	})
 
 	return count, err
+}
+
+// computeFileHash opens a file, streams its contents through an xxhash hasher,
+// and returns the computed 64-bit hash in hexadecimal string format.
+func computeFileHash(filePath string) (string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	hasher := xxhash.New()
+	if _, err := io.Copy(hasher, f); err != nil {
+		return "", err
+	}
+	// Convert the 64-bit hash to hexadecimal.
+	return fmt.Sprintf("%016x", hasher.Sum64()), nil
 }
