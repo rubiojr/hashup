@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,7 +16,14 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+var ErrFileInfoExists = errors.New("file info already exists")
+var ErrFileHashExists = errors.New("file hash already exists")
+
 type Store interface {
+	Store(context.Context, *types.ScannedFile) (*FileStored, error)
+}
+
+type Listener interface {
 	Listen(context.Context) error
 }
 
@@ -204,13 +212,13 @@ func (s *sqliteStore) Listen(ctx context.Context) error {
 			}
 
 			// Process the file (save to database)
-			wasWritten, err := s.saveFileToDatabase(fileMsg)
+			wasWritten, err := s.Store(ctx, fileMsg)
 			if err != nil {
 				log.Errorf("Failed to save file to database: %v\n", err)
 				if s.stats != nil {
 					s.stats.IncrementSkipped()
 				}
-			} else if wasWritten {
+			} else if wasWritten.Dirty() {
 				if s.stats != nil {
 					s.stats.IncrementWritten()
 				}
@@ -225,15 +233,16 @@ func (s *sqliteStore) Listen(ctx context.Context) error {
 	}
 }
 
-// Modified to return whether a new record was written
-func (s *sqliteStore) saveFileToDatabase(fileMsg *types.ScannedFile) (bool, error) {
-	// Track if we've written a new record
-	recordWritten := false
+func (s *sqliteStore) Store(ctx context.Context, fileMsg *types.ScannedFile) (*FileStored, error) {
+	recordStored := &FileStored{
+		FileHash: false,
+		FileInfo: false,
+	}
 
 	// Begin transaction
-	tx, err := s.db.Begin()
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return recordWritten, fmt.Errorf("failed to begin transaction: %v", err)
+		return recordStored, fmt.Errorf("failed to begin transaction: %v", err)
 	}
 	defer func() {
 		if err != nil {
@@ -241,32 +250,82 @@ func (s *sqliteStore) saveFileToDatabase(fileMsg *types.ScannedFile) (bool, erro
 		}
 	}()
 
+	hashID, err := s.saveFileHash(tx, fileMsg.Hash)
+	recordStored.FileHash = err == nil
+
+	if err != nil && hashID == -1 {
+		return recordStored, fmt.Errorf("failed to save hash to database: %v", err)
+	}
+
+	err = s.saveFileInfo(tx, hashID, fileMsg)
+	recordStored.FileInfo = err == nil
+	if err != nil && err != ErrFileInfoExists {
+		return recordStored, fmt.Errorf("failed to save file info to database: %v", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		recordStored = &FileStored{}
+		return recordStored, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return recordStored, nil
+}
+
+func (s *sqliteStore) saveFileHash(tx *sql.Tx, hash string) (int64, error) {
 	// Check if hash already exists in file_hashes
-	var hashID int64
-	row := tx.QueryRow("SELECT id FROM file_hashes WHERE file_hash = ?", fileMsg.Hash)
-	err = row.Scan(&hashID)
+	hashID := int64(-1)
+	row := tx.QueryRow("SELECT id FROM file_hashes WHERE file_hash = ?", hash)
+	err := row.Scan(&hashID)
+	if err == nil {
+		return hashID, ErrFileHashExists
+	}
+
 	if err == sql.ErrNoRows {
-		// Insert hash if it doesn't exist
-		result, err := tx.Exec("INSERT INTO file_hashes (file_hash) VALUES (?)", fileMsg.Hash)
+		result, err := tx.Exec("INSERT INTO file_hashes (file_hash) VALUES (?)", hash)
 		if err != nil {
-			return recordWritten, fmt.Errorf("failed to insert file hash: %v", err)
+			return hashID, fmt.Errorf("failed to insert file hash: %v", err)
 		}
 		hashID, err = result.LastInsertId()
 		if err != nil {
-			return recordWritten, fmt.Errorf("failed to get last insert ID: %v", err)
+			return hashID, fmt.Errorf("failed to get last insert ID: %v", err)
 		}
-		recordWritten = true
 	} else if err != nil {
-		return recordWritten, fmt.Errorf("failed to query file hash: %v", err)
+		return hashID, fmt.Errorf("failed to query file hash: %v", err)
 	}
 
+	return hashID, nil
+}
+
+type FileStored struct {
+	FileHash bool
+	FileInfo bool
+}
+
+func (r *FileStored) Dirty() bool {
+	return r.FileHash || r.FileInfo
+}
+
+func (r *FileStored) Both() bool {
+	return r.FileHash && r.FileInfo
+}
+
+func (r *FileStored) Clean() bool {
+	return !r.FileHash && !r.FileInfo
+}
+
+func (s *sqliteStore) saveFileInfo(tx *sql.Tx, hashID int64, fileMsg *types.ScannedFile) error {
 	// Check if file_info already exists
 	var fileID int64
-	row = tx.QueryRow(
+	row := tx.QueryRow(
 		"SELECT id FROM file_info WHERE file_path = ? AND host = ? AND file_hash = ?",
 		fileMsg.Path, fileMsg.Hostname, fileMsg.Hash,
 	)
-	err = row.Scan(&fileID)
+	err := row.Scan(&fileID)
+
+	if err == nil {
+		return ErrFileInfoExists
+	}
 
 	// Format mod time for SQL
 	modTimeStr := fileMsg.ModTime.Format("2006-01-02 15:04:05")
@@ -282,48 +341,14 @@ func (s *sqliteStore) saveFileToDatabase(fileMsg *types.ScannedFile) (bool, erro
 			fileMsg.Hostname, fileMsg.Extension, fileMsg.Hash,
 		)
 		if err != nil {
-			return recordWritten, fmt.Errorf("failed to insert file info: %v", err)
+			return fmt.Errorf("failed to insert file info: %v", err)
 		}
 		fileID, err = result.LastInsertId()
 		if err != nil {
-			return recordWritten, fmt.Errorf("failed to get last insert ID: %v", err)
+			return fmt.Errorf("failed to get last insert ID: %v", err)
 		}
-		recordWritten = true
-	} else if err != nil {
-		return recordWritten, fmt.Errorf("failed to query file info: %v", err)
-	} else {
-		// Check if we need to update (file size or mod time changed)
-		var currentSize int64
-		var currentModTime string
-		err = tx.QueryRow(
-			"SELECT file_size, modified_date FROM file_info WHERE id = ?",
-			fileID,
-		).Scan(&currentSize, &currentModTime)
-
-		if err != nil {
-			return recordWritten, fmt.Errorf("failed to query current file details: %v", err)
-		}
-
-		// Only update if needed
-		if currentSize != fileMsg.Size || currentModTime != modTimeStr {
-			// Update existing file_info
-			_, err = tx.Exec(
-				`UPDATE file_info SET
-					file_size = ?, modified_date = ?, updated_date = CURRENT_TIMESTAMP
-				WHERE id = ?`,
-				fileMsg.Size, modTimeStr, fileID,
-			)
-			if err != nil {
-				return recordWritten, fmt.Errorf("failed to update file info: %v", err)
-			}
-			recordWritten = true
-		}
+		return nil
 	}
 
-	// Commit the transaction
-	if err = tx.Commit(); err != nil {
-		return recordWritten, fmt.Errorf("failed to commit transaction: %v", err)
-	}
-
-	return recordWritten, nil
+	return fmt.Errorf("failed to query file info: %v", err)
 }
