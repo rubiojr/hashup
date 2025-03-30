@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
@@ -13,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rubiojr/hashup/internal/config"
+	"github.com/rubiojr/hashup/internal/crypto"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/store"
 	"github.com/urfave/cli/v2"
@@ -95,6 +94,10 @@ func runStore(clictx *cli.Context) error {
 	hasher := sha256.New()
 	hasher.Write([]byte(keyString))
 	encryptionKey = hasher.Sum(nil)
+	cryptom, err := crypto.New(encryptionKey)
+	if err != nil {
+		return fmt.Errorf("failed to create crypto instance: %v", err)
+	}
 
 	filterHost := ""
 	// Process messages
@@ -132,7 +135,7 @@ func runStore(clictx *cli.Context) error {
 
 				if isEncrypted {
 					// Decrypt the message
-					decrypted, err := decryptMessage(msg.Data, encryptionKey)
+					decrypted, err := cryptom.Decrypt(msg.Data)
 					if err != nil {
 						log.Errorf("Failed to decrypt message: %v\n", err)
 						stats.IncrementSkipped()
@@ -308,36 +311,4 @@ func saveFileToDatabase(db *sql.DB, fileMsg natsp.FileMessage) (bool, error) {
 	}
 
 	return recordWritten, nil
-}
-
-// Helper function to decrypt messages
-func decryptMessage(ciphertext, key []byte) ([]byte, error) {
-	// Create a new cipher block from the key
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a new GCM
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the nonce size
-	nonceSize := gcm.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-
-	// Extract the nonce and ciphertext
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-
-	// Decrypt the data
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return plaintext, nil
 }

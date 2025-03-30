@@ -1,3 +1,4 @@
 * Normalize extension names when storing them to the database
 * hashup index command should handle nats server reconnects
 * Cache file stats when updating the database
+* Remote search: use a remote node for file search, which means the remote node should have a copy of the file database

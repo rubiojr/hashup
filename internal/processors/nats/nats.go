@@ -2,11 +2,7 @@ package nats
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +12,7 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/rubiojr/hashup/internal/cache"
+	"github.com/rubiojr/hashup/internal/crypto"
 	"github.com/rubiojr/hashup/internal/errmsg"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/vmihailenco/msgpack/v5"
@@ -59,6 +56,7 @@ type natsProcessor struct {
 	encrypt      bool   // field to control encryption behavior
 	cache        *cache.FileCache
 	statsChan    chan Stats
+	crypto       *crypto.Machine
 }
 
 // Options for configuring the NATS processor
@@ -150,78 +148,16 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 	}
 
 	// If encryption is enabled but no key was provided, generate a random one
-	if processor.encrypt && processor.encryptKey == nil {
+	if processor.encryptKey == nil {
 		return nil, fmt.Errorf("encryption enabled but no key provided")
 	}
 
-	// Only set up subscription if we're waiting for acknowledgments
-	if processor.waitForAck {
-		responsesSub, err := nc.SubscribeSync(responseSub)
-		if err != nil {
-			nc.Close()
-			return nil, fmt.Errorf("failed to subscribe to responses: %v", err)
-		}
-		processor.responsesSub = responsesSub
+	processor.crypto, err = crypto.New(processor.encryptKey)
+	if err != nil {
+		return nil, err
 	}
 
 	return processor, nil
-}
-
-// encrypt uses AES-GCM to encrypt data with the processor's key
-func (np *natsProcessor) encryptData(data []byte) ([]byte, error) {
-	// Create a new cipher block from the key
-	block, err := aes.NewCipher(np.encryptKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a new GCM
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a nonce (12 bytes for GCM)
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
-	}
-
-	// Encrypt and seal the data
-	ciphertext := gcm.Seal(nonce, nonce, data, nil)
-	return ciphertext, nil
-}
-
-// decrypt uses AES-GCM to decrypt data with the processor's key
-func (np *natsProcessor) decryptData(data []byte) ([]byte, error) {
-	// Create a new cipher block from the key
-	block, err := aes.NewCipher(np.encryptKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a new GCM
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the nonce size
-	nonceSize := gcm.NonceSize()
-	if len(data) < nonceSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-
-	// Extract the nonce and ciphertext
-	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-
-	// Decrypt the data
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return plaintext, nil
 }
 
 // Process method with optional encryption
@@ -280,7 +216,7 @@ func (np *natsProcessor) Process(path string, info os.FileInfo, hostname string)
 	var publishData []byte
 	// Encrypt the data if encryption is enabled
 	if np.encrypt {
-		encryptedData, err := np.encryptData(plainData)
+		encryptedData, err := np.crypto.Encrypt(plainData)
 		if err != nil {
 			return fmt.Errorf("failed to encrypt message: %v", err)
 		}
@@ -339,18 +275,4 @@ func computeFileHash(filePath string) (string, error) {
 	}
 	// Convert the 64-bit hash to hexadecimal.
 	return fmt.Sprintf("%016x", hasher.Sum64()), nil
-}
-
-// GetEncryptionKeyHex returns the current encryption key as a hex string
-// or an empty string if encryption is disabled
-func (np *natsProcessor) GetEncryptionKeyHex() string {
-	if !np.encrypt {
-		return ""
-	}
-	return hex.EncodeToString(np.encryptKey)
-}
-
-// IsEncryptionEnabled returns whether encryption is enabled for this processor
-func (np *natsProcessor) IsEncryptionEnabled() bool {
-	return np.encrypt
 }
