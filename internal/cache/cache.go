@@ -2,7 +2,6 @@ package cache
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +10,12 @@ import (
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/rubiojr/hashup/internal/log"
 )
+
+type Cache interface {
+	IsFileProcessed(string, string) bool
+	MarkFileProcessed(string, string)
+	Save() error
+}
 
 // FileCache provides a fast in-memory cache for file metadata using fastcache
 type FileCache struct {
@@ -101,34 +106,6 @@ func (fc *FileCache) MarkFileProcessed(filePath, fileHash string) {
 	key := createCacheKey(filePath, fileHash)
 	fc.cache.Set(key, []byte{})
 	fc.stats.Additions++
-}
-
-// HasFileWithPath checks if any version of a file with the given path exists
-// This is useful to check if a file path has been seen before regardless of its hash
-func (fc *FileCache) HasFileWithPath(filePath string) bool {
-	// This operation requires iterating through all keys, which fastcache doesn't support directly
-	// For efficiency, we'll store path-based lookup entries separately
-
-	// Create a path-only key (with special prefix to distinguish)
-	pathKey := []byte("path:" + filePath)
-	exists := fc.cache.Has(pathKey)
-
-	if exists {
-		fc.stats.Hits++
-	} else {
-		fc.stats.Misses++
-	}
-
-	return exists
-}
-
-// UpdatePathIndex updates the path-based lookup index
-func (fc *FileCache) UpdatePathIndex(filePath string) {
-	// Create a path-only key
-	pathKey := []byte("path:" + filePath)
-	timestamp := make([]byte, 8)
-	binary.LittleEndian.PutUint64(timestamp, uint64(time.Now().Unix()))
-	fc.cache.Set(pathKey, timestamp)
 }
 
 // Save persists the cache to disk

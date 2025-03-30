@@ -57,7 +57,7 @@ type DirectoryScanner struct {
 	ignoreHidden bool
 	pool         *pool.Pool
 	pCount       chan int64
-	cache        *cache.FileCache
+	cache        cache.Cache
 }
 
 // Options for configuring the NATS processor
@@ -83,14 +83,20 @@ func WithIgnoreHidden(ignoreHidden bool) Option {
 	}
 }
 
-func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
+func WithCache(cache cache.Cache) Option {
+	return func(s *DirectoryScanner) {
+		s.cache = cache
+	}
+}
 
+func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 	scanner := &DirectoryScanner{
 		rootDir:      rootDir,
 		ignoreList:   []string{},
 		ignoreHidden: true,
-		pCount:       make(chan int64),
 		pool:         pool.NewPool(10),
+		// TODO: context propagagion
+		cache: cache.NewFileCache(context.Background(), 100, cache.DefaultCachePath()),
 	}
 
 	// apply options
@@ -104,11 +110,20 @@ func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 }
 
 func (s *DirectoryScanner) CounterChan() chan int64 {
+	if s.pCount == nil {
+		s.pCount = make(chan int64)
+	}
 	return s.pCount
 }
 
+func (s *DirectoryScanner) incCounter() {
+	if s.pCount == nil {
+		return
+	}
+	s.pCount <- 1
+}
+
 func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processors.Processor) (int64, error) {
-	s.cache = cache.NewFileCache(ctx, 100, cache.DefaultCachePath())
 	defer s.pool.Stop()
 	defer s.cache.Save()
 
@@ -124,7 +139,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		s.pCount <- 1
+		s.incCounter()
 
 		if s.ignoreHidden && info.IsDir() && len(info.Name()) > 1 && info.Name()[0] == '.' {
 			log.Printf("ignoring hidden directory: %s", path)
@@ -156,7 +171,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 
 		// return if the file is not a regular file
 		if !info.Mode().IsRegular() {
-			log.Printf("Warn: not a regular file %q", path)
+			//log.Printf("Warn: not a regular file %q", path)
 			return nil
 		}
 
@@ -193,6 +208,10 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		ext := filepath.Ext(path)
 		if ext != "" {
 			ext = ext[1:] // Remove the dot
+		}
+
+		if filepath.Base(path) == filepath.Ext(path) {
+			ext = ""
 		}
 
 		// Create the message
