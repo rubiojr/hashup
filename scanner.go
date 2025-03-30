@@ -103,6 +103,7 @@ func runScanner(clictx *cli.Context) error {
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	processor, err := nats.NewNATSProcessor(
 		ctx,
 		natsServerURL,
