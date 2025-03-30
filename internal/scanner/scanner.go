@@ -3,18 +3,17 @@ package scanner
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 
-	"github.com/cespare/xxhash/v2"
 	"github.com/rubiojr/hashup/internal/cache"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/pool"
 	"github.com/rubiojr/hashup/internal/processors"
 	"github.com/rubiojr/hashup/internal/types"
+	"github.com/rubiojr/hashup/internal/util"
 )
 
 var ignoredDirectories = []string{
@@ -180,7 +179,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		}
 
 		// Calculate file hash
-		fileHash, err := computeFileHash(absPath)
+		fileHash, err := util.ComputeFileHash(absPath)
 		if err != nil {
 			return fmt.Errorf("error computing xxhash for %q: %v", path, err)
 		}
@@ -224,21 +223,4 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 	})
 
 	return count, err
-}
-
-// computeFileHash opens a file, streams its contents through an xxhash hasher,
-// and returns the computed 64-bit hash in hexadecimal string format.
-func computeFileHash(filePath string) (string, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	hasher := xxhash.New()
-	if _, err := io.Copy(hasher, f); err != nil {
-		return "", err
-	}
-	// Convert the 64-bit hash to hexadecimal.
-	return fmt.Sprintf("%016x", hasher.Sum64()), nil
 }

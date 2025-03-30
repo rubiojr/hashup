@@ -21,9 +21,6 @@ var ErrFileHashExists = errors.New("file hash already exists")
 
 type Store interface {
 	Store(context.Context, *types.ScannedFile) (*FileStored, error)
-}
-
-type Listener interface {
 	Listen(context.Context) error
 }
 
