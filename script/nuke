@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+echo "This script will remove NATS stream, recreate HashUp database, and clear HashUp cache and config."
+echo "All HashUp data will be lost. Are you sure you want to continue? (y/n)"
+read -r confirmation
+if [[ ! "$confirmation" =~ ^[Yy]$ ]]; then
+    echo "Operation canceled."
+    exit 0
+fi
+
+nats str rm -f HASHUP
+hs admin recreate-db -f
+rm -rf ~/.cache/hashup
+rm -rf ~/.config/hashup
+hashup setup
