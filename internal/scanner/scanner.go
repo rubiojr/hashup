@@ -125,6 +125,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		s.pCount <- 1
 
 		if s.ignoreHidden && info.IsDir() && len(info.Name()) > 1 && info.Name()[0] == '.' {
 			log.Printf("ignoring hidden directory: %s", path)
@@ -206,7 +207,6 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		}
 
 		f := func() error {
-			s.pCount <- 1
 			err = processor.Process(absPath, msg)
 			if err != nil {
 				if ctx.Err() != nil {
@@ -214,7 +214,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 				}
 				log.Errorf("failed processing %q: %v", path, err)
 			}
-			s.cache.MarkFileProcessed(path, fileHash)
+			s.cache.MarkFileProcessed(absPath, fileHash)
 			return nil
 		}
 

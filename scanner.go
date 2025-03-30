@@ -87,7 +87,7 @@ func runScanner(clictx *cli.Context) error {
 	statsChan := make(chan nats.Stats, 1000)
 	var processedFiles int64
 	var skippedFiles int64
-	var indexedFiles int64
+	var queuedFiles int64
 	processorOpts = append(
 		processorOpts,
 		nats.WithEncryptionKey(encryptionKey),
@@ -98,7 +98,7 @@ func runScanner(clictx *cli.Context) error {
 		for stats := range statsChan {
 			processedFiles++
 			skippedFiles += int64(stats.SkippedFiles)
-			indexedFiles += int64(stats.IndexedFiles)
+			queuedFiles += int64(stats.QueuedFiles)
 		}
 	}()
 
@@ -136,10 +136,10 @@ func runScanner(clictx *cli.Context) error {
 	log.Printf("Shutting down...")
 	cancel()
 	fmt.Printf(
-		"Processed %d files, skipped %d files, indexed %d files\n",
+		"Processed %d files, skipped %d files, queued %d files\n",
 		processedFiles,
 		skippedFiles,
-		indexedFiles,
+		queuedFiles,
 	)
 	return nil
 }

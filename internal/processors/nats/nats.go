@@ -4,11 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"io"
-	"os"
 	"time"
 
-	"github.com/cespare/xxhash/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/rubiojr/hashup/internal/cache"
 	"github.com/rubiojr/hashup/internal/crypto"
@@ -20,28 +17,19 @@ import (
 
 type Stats struct {
 	SkippedFiles uint8
-	IndexedFiles uint8
-}
-
-// ProcessResponse represents the response from the NATS consumer
-type ProcessResponse struct {
-	RequestID string `msgpack:"request_id"`
-	Success   bool   `msgpack:"success"`
-	Error     string `msgpack:"error,omitempty"`
+	QueuedFiles  uint8
 }
 
 type natsProcessor struct {
-	nc           *nats.Conn
-	js           nats.JetStreamContext
-	subjectName  string
-	responseSub  string
-	responsesSub *nats.Subscription
-	timeout      time.Duration
-	encryptKey   []byte // AES encryption key (only used if encrypt is true)
-	encrypt      bool   // field to control encryption behavior
-	cache        *cache.FileCache
-	statsChan    chan Stats
-	crypto       *crypto.Machine
+	nc          *nats.Conn
+	js          nats.JetStreamContext
+	subjectName string
+	timeout     time.Duration
+	encryptKey  []byte // AES encryption key (only used if encrypt is true)
+	encrypt     bool   // field to control encryption behavior
+	cache       *cache.FileCache
+	statsChan   chan Stats
+	crypto      *crypto.Machine
 }
 
 // Options for configuring the NATS processor
@@ -98,23 +86,13 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 		}
 	}
 
-	// Create a unique subject for responses
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = "unknown"
-	}
-	pid := os.Getpid()
-	responseSub := fmt.Sprintf("%s.responses.%s.%d", subject, hostname, pid)
-
 	// Create processor with default settings
 	processor := &natsProcessor{
 		nc:          nc,
 		js:          js,
 		subjectName: subject,
-		responseSub: responseSub,
 		timeout:     timeout,
-		encrypt:     true, // default to no encryption
-
+		encrypt:     true,
 	}
 
 	// Apply options
@@ -179,7 +157,7 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
 		return fmt.Errorf("failed to publish message: %w", errmsg.ErrPublishFailed)
 	}
 
-	stats.IndexedFiles++
+	stats.QueuedFiles++
 	stats.SkippedFiles = 0
 
 	return nil
@@ -191,21 +169,4 @@ func (np *natsProcessor) Close() {
 		np.nc.Close()
 	}
 	close(np.statsChan)
-}
-
-// computeFileHash opens a file, streams its contents through an xxhash hasher,
-// and returns the computed 64-bit hash in hexadecimal string format.
-func computeFileHash(filePath string) (string, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	hasher := xxhash.New()
-	if _, err := io.Copy(hasher, f); err != nil {
-		return "", err
-	}
-	// Convert the 64-bit hash to hexadecimal.
-	return fmt.Sprintf("%016x", hasher.Sum64()), nil
 }

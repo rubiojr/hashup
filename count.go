@@ -26,6 +26,7 @@ func FileCounter(root string) *FileCount {
 				log.Printf("error walking path %s: %v", path, err)
 				return nil
 			}
+			counter++
 
 			if info.IsDir() {
 				return nil
@@ -35,7 +36,6 @@ func FileCounter(root string) *FileCount {
 				return nil
 			}
 
-			counter++
 			return nil
 		})
 
