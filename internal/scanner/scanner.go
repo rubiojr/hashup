@@ -152,7 +152,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		}
 
 		// Skip files that cannot be accessed.
-		absPath, _ := filepath.Abs(path)
+		absPath, err := filepath.Abs(path)
 		if err != nil {
 			log.Printf("Error accessing %q: %v", path, err)
 			return nil
