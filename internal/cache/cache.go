@@ -32,22 +32,6 @@ type CacheStats struct {
 	Additions int64
 }
 
-func DefaultCachePath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic("Failed to get user home directory")
-	}
-
-	dir := filepath.Join(home, ".cache", "hashup")
-
-	err = os.MkdirAll(dir, 0755)
-	if err != nil {
-		panic("Failed to create cache directory")
-	}
-
-	return filepath.Join(dir, "cache")
-}
-
 // NewFileCache creates a new file cache with a specified size limit in MB
 func NewFileCache(ctx context.Context, sizeMB int, cachePath string) *FileCache {
 	log.Debugf("Creating or loading file cache with size %dMB at %s", sizeMB, cachePath)

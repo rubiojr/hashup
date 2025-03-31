@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/rubiojr/hashup/internal/cache"
+	"github.com/rubiojr/hashup/internal/config"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/pool"
 	"github.com/rubiojr/hashup/internal/processors"
@@ -96,7 +97,7 @@ func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 		ignoreHidden: true,
 		pool:         pool.NewPool(5),
 		// TODO: context propagagion
-		cache: cache.NewFileCache(context.Background(), 100, cache.DefaultCachePath()),
+		cache: cache.NewFileCache(context.Background(), 100, config.DefaultCachePath()),
 	}
 
 	// apply options

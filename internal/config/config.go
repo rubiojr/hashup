@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/rubiojr/hashup/internal/cache"
 	"github.com/urfave/cli/v2"
 )
 
@@ -85,7 +84,7 @@ func DefaultConfig() Config {
 		Scanner: ScannerConfig{
 			ScanningInterval:    3600, // 1 hour in seconds
 			ScanningConcurrency: 5,
-			CachePath:           cache.DefaultCachePath(),
+			CachePath:           DefaultCachePath(),
 		},
 	}
 }
@@ -246,4 +245,20 @@ func DefaultNATSDataDir() string {
 		panic(err)
 	}
 	return filepath.Join(home, ".local", "share", "hashup", "nats")
+}
+
+func DefaultCachePath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic("Failed to get user home directory")
+	}
+
+	dir := filepath.Join(home, ".cache", "hashup")
+
+	err = os.MkdirAll(dir, 0755)
+	if err != nil {
+		panic("Failed to create cache directory")
+	}
+
+	return filepath.Join(dir, "cache")
 }
