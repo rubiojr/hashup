@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rubiojr/hashup/internal/cache"
 	"github.com/rubiojr/hashup/internal/config"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/processors/nats"
@@ -64,6 +65,7 @@ func runScanner(clictx *cli.Context) error {
 	scannerOpts := []scanner.Option{
 		scanner.WithIgnoreList(ignoreList),
 		scanner.WithIgnoreHidden(clictx.Bool("ignore-hidden")),
+		scanner.WithCache(cache.NewFileCache(context.Background(), 100, cfg.Scanner.CachePath)),
 	}
 	scanner := scanner.NewDirectoryScanner(rootDir, scannerOpts...)
 
@@ -90,6 +92,14 @@ func runScanner(clictx *cli.Context) error {
 		nats.WithEncryptionKey(encryptionKey),
 		nats.WithStatsChannel(statsChan),
 	)
+
+	if cfg.Main.ClientKey != "" {
+		processorOpts = append(processorOpts,
+			nats.WithClientKey(cfg.Main.ClientKey),
+			nats.WithClientCert(cfg.Main.ClientCert),
+			nats.WithCACert(cfg.Main.CACert),
+		)
+	}
 
 	go func() {
 		for stats := range statsChan {

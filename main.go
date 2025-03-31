@@ -23,6 +23,11 @@ func main() {
 				Usage:   "Scan files recursively",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
+						Name:  "config",
+						Usage: "Path to the configuration file",
+						Value: "",
+					},
+					&cli.StringFlag{
 						Name:    "nats-url",
 						Usage:   "NATS URL",
 						EnvVars: []string{"HASHUP_NATS_URL"},
@@ -51,6 +56,18 @@ func main() {
 						Usage:   "Key to use for encryption (if empty, a random key is generated)",
 						EnvVars: []string{"HASHUP_ENCRYPTION_KEY"},
 					},
+					&cli.StringFlag{
+						Name:  "client-cert",
+						Usage: "TLS client key",
+					},
+					&cli.StringFlag{
+						Name:  "client-key",
+						Usage: "TLS client cert",
+					},
+					&cli.StringFlag{
+						Name:  "ca-cert",
+						Usage: "TLS CA cert",
+					},
 				},
 				Action: func(c *cli.Context) error {
 					if c.Bool("debug") {
@@ -64,6 +81,11 @@ func main() {
 				Aliases: []string{"s"},
 				Usage:   "Start NATS consumer to store file metadata in the database",
 				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Usage: "Path to the configuration file",
+						Value: "",
+					},
 					&cli.StringFlag{
 						Name:    "nats-url",
 						Aliases: []string{"n"},
@@ -104,6 +126,18 @@ func main() {
 						Name:    "stats-interval",
 						Usage:   "Interval in seconds to print statistics (0 to disable)",
 						EnvVars: []string{"HASHUP_STATS_INTERVAL"},
+					},
+					&cli.StringFlag{
+						Name:  "client-cert",
+						Usage: "TLS client key",
+					},
+					&cli.StringFlag{
+						Name:  "client-key",
+						Usage: "TLS client cert",
+					},
+					&cli.StringFlag{
+						Name:  "ca-cert",
+						Usage: "TLS CA cert",
 					},
 				},
 				Action: func(c *cli.Context) error {

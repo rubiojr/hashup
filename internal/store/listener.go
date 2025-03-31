@@ -49,6 +49,24 @@ func WithStats(stats *ProcessStats) NATSListenerOption {
 	}
 }
 
+func WithClientCert(cert string) NATSListenerOption {
+	return func(s *natsListener) {
+		s.clientCert = cert
+	}
+}
+
+func WithClientKey(key string) NATSListenerOption {
+	return func(s *natsListener) {
+		s.clientKey = key
+	}
+}
+
+func WithCACert(cert string) NATSListenerOption {
+	return func(s *natsListener) {
+		s.caCert = cert
+	}
+}
+
 type natsListener struct {
 	natsServerURL     string
 	natsStream        string
@@ -57,6 +75,9 @@ type natsListener struct {
 	natsEncryptionKey string
 	stats             *ProcessStats
 	storage           Storage
+	clientCert        string
+	clientKey         string
+	caCert            string
 }
 
 func NewNatsListener(encryptionKey string, storage Storage, options ...NATSListenerOption) (Listener, error) {
@@ -80,8 +101,21 @@ func NewNatsListener(encryptionKey string, storage Storage, options ...NATSListe
 }
 
 func (l *natsListener) Listen(ctx context.Context) error {
-	// Connect to NATS with JetStream enabled
-	nc, err := nats.Connect(l.natsServerURL)
+	opts := []nats.Option{}
+
+	if l.clientCert != "" {
+		log.Debug("enabling Mutual TLS")
+		opts = append(
+			opts,
+			nats.ClientCert(l.clientCert, l.clientKey),
+			nats.RootCAs(l.caCert),
+		)
+	}
+
+	nc, err := nats.Connect(
+		l.natsServerURL,
+		opts...,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to connect to NATS: %v", err)
 	}

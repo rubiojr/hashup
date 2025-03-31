@@ -30,6 +30,9 @@ type natsProcessor struct {
 	cache       *cache.FileCache
 	statsChan   chan Stats
 	crypto      *crypto.Machine
+	clientCert  string
+	clientKey   string
+	caCert      string
 }
 
 // Options for configuring the NATS processor
@@ -50,13 +53,55 @@ func WithEncryptionKey(key string) Option {
 		np.encryptKey = hasher.Sum(nil)
 	}
 }
+func WithClientCert(cert string) Option {
+	return func(np *natsProcessor) {
+		np.clientCert = cert
+	}
+}
+
+func WithClientKey(key string) Option {
+	return func(np *natsProcessor) {
+		np.clientKey = key
+	}
+}
+
+func WithCACert(cert string) Option {
+	return func(np *natsProcessor) {
+		np.caCert = cert
+	}
+}
 
 // Update NewNATSProcessor to use JetStream and support optional encryption
 func NewNATSProcessor(ctx context.Context, url, streamName, subject string, timeout time.Duration, opts ...Option) (*natsProcessor, error) {
-	nc, err := nats.Connect(url)
+	// Create processor with default settings
+	processor := &natsProcessor{
+		subjectName: subject,
+		timeout:     timeout,
+		encrypt:     true,
+	}
+	// Apply options
+	for _, opt := range opts {
+		opt(processor)
+	}
+
+	nopts := []nats.Option{}
+	if processor.clientCert != "" {
+		log.Debug("enabling Mutual TLS")
+		log.Debugf("Client certificate: %s", processor.clientCert)
+		log.Debugf("Client key: %s", processor.clientKey)
+		log.Debugf("CA Cert: %s", processor.caCert)
+		nopts = append(
+			nopts,
+			nats.ClientCert(processor.clientCert, processor.clientKey),
+			nats.RootCAs(processor.caCert),
+		)
+	}
+	log.Debugf("NATS URL: %s", url)
+	nc, err := nats.Connect(url, nopts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to NATS: %v", err)
 	}
+	processor.nc = nc
 
 	// Get JetStream context
 	js, err := nc.JetStream()
@@ -64,6 +109,7 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 		nc.Close()
 		return nil, fmt.Errorf("failed to get JetStream context: %v", err)
 	}
+	processor.js = js
 
 	_, err = js.StreamInfo(streamName)
 	if err != nil {
@@ -84,20 +130,6 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 			nc.Close()
 			return nil, fmt.Errorf("failed to create stream: %v", err)
 		}
-	}
-
-	// Create processor with default settings
-	processor := &natsProcessor{
-		nc:          nc,
-		js:          js,
-		subjectName: subject,
-		timeout:     timeout,
-		encrypt:     true,
-	}
-
-	// Apply options
-	for _, opt := range opts {
-		opt(processor)
 	}
 
 	// If encryption is enabled but no key was provided, generate a random one
@@ -165,6 +197,7 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
 
 // Close closes the NATS connection
 func (np *natsProcessor) Close() {
+	defer np.nc.Drain()
 	if np.nc != nil && !np.nc.IsClosed() {
 		np.nc.Close()
 	}

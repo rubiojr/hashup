@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/rubiojr/hashup/internal/cache"
 	"github.com/urfave/cli/v2"
 )
 
@@ -14,6 +15,7 @@ type Config struct {
 	Main    MainConfig    `toml:"main"`
 	Store   StoreConfig   `toml:"store"`
 	Scanner ScannerConfig `toml:"scanner"`
+	Path    string
 }
 
 // MainConfig represents the main configuration section
@@ -22,6 +24,9 @@ type MainConfig struct {
 	EncryptionKey string `toml:"encryption_key"`
 	NatsStream    string `toml:"nats_stream"`
 	NatsSubject   string `toml:"nats_subject"`
+	ClientCert    string `toml:"client_cert"`
+	ClientKey     string `toml:"client_key"`
+	CACert        string `toml:"ca_cert"`
 }
 
 // StoreConfig represents the store configuration section
@@ -32,13 +37,32 @@ type StoreConfig struct {
 
 // ScannerConfig represents the scanner configuration section
 type ScannerConfig struct {
-	ScanningInterval    int `toml:"scanning_interval"`
-	ScanningConcurrency int `toml:"scanning_concurrency"`
+	ScanningInterval    int    `toml:"scanning_interval"`
+	ScanningConcurrency int    `toml:"scanning_concurrency"`
+	CachePath           string `toml:"cache_path"`
+}
+
+func (c Config) AbsPath(file string) string {
+	if file == "" {
+		return ""
+	}
+
+	if filepath.IsAbs(file) {
+		return file
+	}
+
+	return filepath.Join(filepath.Dir(c.Path), file)
 }
 
 // DefaultConfig returns a configuration with default values
 func DefaultConfig() Config {
+	cdir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+
 	return Config{
+		Path: filepath.Join(cdir, "config.toml"),
 		Main: MainConfig{
 			NatsServerURL: "http://localhost:4222",
 			EncryptionKey: "",
@@ -52,6 +76,7 @@ func DefaultConfig() Config {
 		Scanner: ScannerConfig{
 			ScanningInterval:    3600, // 1 hour in seconds
 			ScanningConcurrency: 5,
+			CachePath:           cache.DefaultCachePath(),
 		},
 	}
 }
@@ -59,6 +84,7 @@ func DefaultConfig() Config {
 // LoadConfig loads the configuration from the specified file path
 func LoadConfig(path string) (*Config, error) {
 	config := DefaultConfig()
+	config.Path = path
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, fmt.Errorf("config file not found")
@@ -69,11 +95,21 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to decode config file: %v", err)
 	}
 
+	config.Main.ClientKey = config.AbsPath(config.Main.ClientKey)
+	config.Main.ClientCert = config.AbsPath(config.Main.ClientCert)
+	config.Main.CACert = config.AbsPath(config.Main.CACert)
+
 	return &config, nil
 }
 
 func LoadConfigFromCLI(ctx *cli.Context) (*Config, error) {
-	cfg, err := LoadDefaultConfig()
+	var cfg *Config
+	var err error
+	if ctx.String("config") != "" {
+		cfg, err = LoadConfig(ctx.String("config"))
+	} else {
+		cfg, err = LoadDefaultConfig()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to load default config: %v", err)
 	}
@@ -101,6 +137,21 @@ func LoadConfigFromCLI(ctx *cli.Context) (*Config, error) {
 	streamName := ctx.String("stream")
 	if streamName != "" {
 		cfg.Main.NatsStream = streamName
+	}
+
+	clientCert := ctx.String("client-cert")
+	if clientCert != "" {
+		cfg.Main.ClientCert = cfg.AbsPath(clientCert)
+	}
+
+	clientKey := ctx.String("client-key")
+	if clientKey != "" {
+		cfg.Main.ClientKey = cfg.AbsPath(clientKey)
+	}
+
+	caCert := ctx.String("ca-cert")
+	if caCert != "" {
+		cfg.Main.CACert = cfg.AbsPath(caCert)
 	}
 
 	return cfg, nil

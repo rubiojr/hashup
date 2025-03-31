@@ -21,6 +21,8 @@ func runStore(clictx *cli.Context) error {
 		return err
 	}
 
+	useTLS := cfg.Main.ClientKey != ""
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -33,6 +35,12 @@ func runStore(clictx *cli.Context) error {
 		store.WithNatsStream(cfg.Main.NatsStream),
 		store.WithNatsSubject(cfg.Main.NatsSubject),
 		store.WithNatsURL(cfg.Main.NatsServerURL),
+	}
+
+	if useTLS {
+		opts = append(opts, store.WithClientCert(cfg.Main.ClientCert))
+		opts = append(opts, store.WithClientKey(cfg.Main.ClientKey))
+		opts = append(opts, store.WithCACert(cfg.Main.CACert))
 	}
 
 	storage, err := store.NewSqliteStorage(cfg.Store.DBPath)
