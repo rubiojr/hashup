@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	_ "embed"
-
 	"github.com/urfave/cli/v2"
 )
 
