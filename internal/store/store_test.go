@@ -3,24 +3,22 @@ package store
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/rubiojr/hashup/internal/test"
 	"github.com/rubiojr/hashup/internal/types"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStore(t *testing.T) {
-	db := test.TempDB(t)
-	defer db.Close()
 	ctx := context.Background()
 
 	// Create store instance
-	s := &sqliteStorage{
-		db: db,
-	}
+	s, err := NewSqliteStorage(filepath.Join(t.TempDir(), "hashup.db"))
+	assert.NoError(t, err)
+	db := s.db
 
 	modTime := time.Now().Add(-24 * time.Hour) // A day ago
 	fileMsg1 := &types.ScannedFile{

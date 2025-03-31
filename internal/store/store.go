@@ -20,11 +20,15 @@ type Storage interface {
 type StorageOption func(*sqliteStorage)
 
 type sqliteStorage struct {
-	db     *sql.DB
-	dbPath string
+	db             *sql.DB
+	dbPath         string
+	pInsertHash    *sql.Stmt
+	pInsertInfo    *sql.Stmt
+	pQueryFileInfo *sql.Stmt
+	pQueryFileHash *sql.Stmt
 }
 
-func NewSqliteStorage(dbPath string) (Storage, error) {
+func NewSqliteStorage(dbPath string) (*sqliteStorage, error) {
 	db, err := hsdb.OpenDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
@@ -33,6 +37,30 @@ func NewSqliteStorage(dbPath string) (Storage, error) {
 	storage := &sqliteStorage{
 		db:     db,
 		dbPath: dbPath,
+	}
+
+	storage.pInsertHash, err = db.Prepare("INSERT INTO file_hashes (file_hash) VALUES (?)")
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare insert hash statement: %v", err)
+	}
+
+	storage.pInsertInfo, err = db.Prepare(`
+		INSERT INTO file_info (
+            file_path, file_size, modified_date, hash_id,
+            host, extension, file_hash
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare insert info statement: %v", err)
+	}
+
+	storage.pQueryFileInfo, err = db.Prepare("SELECT id FROM file_info WHERE file_path = ? AND host = ? AND file_hash = ?")
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare query file info statement: %v", err)
+	}
+
+	storage.pQueryFileHash, err = db.Prepare("SELECT id FROM file_hashes WHERE file_hash = ?")
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare query file hash statement: %v", err)
 	}
 
 	return storage, nil
@@ -44,50 +72,33 @@ func (s *sqliteStorage) Store(ctx context.Context, fileMsg *types.ScannedFile) (
 		FileInfo: false,
 	}
 
-	// Begin transaction
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return recordStored, fmt.Errorf("failed to begin transaction: %v", err)
-	}
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
-
-	hashID, err := s.saveFileHash(tx, fileMsg.Hash)
+	hashID, err := s.saveFileHash(fileMsg.Hash)
 	recordStored.FileHash = err == nil
 
 	if err != nil && hashID == -1 {
 		return recordStored, fmt.Errorf("failed to save hash to database: %v", err)
 	}
 
-	err = s.saveFileInfo(tx, hashID, fileMsg)
+	err = s.saveFileInfo(hashID, fileMsg)
 	recordStored.FileInfo = err == nil
 	if err != nil && err != ErrFileInfoExists {
 		return recordStored, fmt.Errorf("failed to save file info to database: %v", err)
 	}
 
-	// Commit the transaction
-	if err = tx.Commit(); err != nil {
-		recordStored = &FileStored{}
-		return recordStored, fmt.Errorf("failed to commit transaction: %v", err)
-	}
-
 	return recordStored, nil
 }
 
-func (s *sqliteStorage) saveFileHash(tx *sql.Tx, hash string) (int64, error) {
+func (s *sqliteStorage) saveFileHash(hash string) (int64, error) {
 	// Check if hash already exists in file_hashes
 	hashID := int64(-1)
-	row := tx.QueryRow("SELECT id FROM file_hashes WHERE file_hash = ?", hash)
+	row := s.pQueryFileHash.QueryRow(hash)
 	err := row.Scan(&hashID)
 	if err == nil {
 		return hashID, ErrFileHashExists
 	}
 
 	if err == sql.ErrNoRows {
-		result, err := tx.Exec("INSERT INTO file_hashes (file_hash) VALUES (?)", hash)
+		result, err := s.pInsertHash.Exec(hash)
 		if err != nil {
 			return hashID, fmt.Errorf("failed to insert file hash: %v", err)
 		}
@@ -119,11 +130,10 @@ func (r *FileStored) Clean() bool {
 	return !r.FileHash && !r.FileInfo
 }
 
-func (s *sqliteStorage) saveFileInfo(tx *sql.Tx, hashID int64, fileMsg *types.ScannedFile) error {
+func (s *sqliteStorage) saveFileInfo(hashID int64, fileMsg *types.ScannedFile) error {
 	// Check if file_info already exists
 	var fileID int64
-	row := tx.QueryRow(
-		"SELECT id FROM file_info WHERE file_path = ? AND host = ? AND file_hash = ?",
+	row := s.pQueryFileInfo.QueryRow(
 		fileMsg.Path, fileMsg.Hostname, fileMsg.Hash,
 	)
 	err := row.Scan(&fileID)
@@ -137,11 +147,7 @@ func (s *sqliteStorage) saveFileInfo(tx *sql.Tx, hashID int64, fileMsg *types.Sc
 
 	if err == sql.ErrNoRows {
 		// Insert file_info if it doesn't exist
-		result, err := tx.Exec(
-			`INSERT INTO file_info (
-                file_path, file_size, modified_date, hash_id,
-                host, extension, file_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		result, err := s.pInsertInfo.Exec(
 			fileMsg.Path, fileMsg.Size, modTimeStr, hashID,
 			fileMsg.Hostname, fileMsg.Extension, fileMsg.Hash,
 		)

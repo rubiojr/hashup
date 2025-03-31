@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS file_hashes (
     added DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_file_hashes_hash ON file_hashes (file_hash);
+
 CREATE TABLE IF NOT EXISTS file_info (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_path TEXT NOT NULL,
@@ -18,6 +20,16 @@ CREATE TABLE IF NOT EXISTS file_info (
     FOREIGN KEY (hash_id) REFERENCES file_hashes (id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_file_path ON file_info (file_path);
+
+CREATE INDEX IF NOT EXISTS idx_file_size ON file_info (file_size);
+
+CREATE INDEX IF NOT EXISTS idx_extension ON file_info (extension);
+
+CREATE INDEX IF NOT EXISTS idx_file_hash ON file_info (file_hash);
+
+CREATE INDEX IF NOT EXISTS idx_host ON file_info (host);
+
 CREATE TABLE IF NOT EXISTS file_tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_id INTEGER NOT NULL,
@@ -31,13 +43,3 @@ CREATE TABLE IF NOT EXISTS file_notes (
     notes TEXT NOT NULL,
     FOREIGN KEY (file_id) REFERENCES file_info (id)
 );
-
-CREATE INDEX IF NOT EXISTS idx_file_path ON file_info (file_path);
-
-CREATE INDEX IF NOT EXISTS idx_file_size ON file_info (file_size);
-
-CREATE INDEX IF NOT EXISTS idx_extension ON file_info (extension);
-
-CREATE INDEX IF NOT EXISTS idx_file_hash ON file_info (file_hash);
-
-CREATE INDEX IF NOT EXISTS idx_host ON file_info (host);
