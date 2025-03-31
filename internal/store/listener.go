@@ -49,6 +49,36 @@ func WithStats(stats *ProcessStats) NATSListenerOption {
 	}
 }
 
+type natsListener struct {
+	natsServerURL     string
+	natsStream        string
+	natsSubject       string
+	natsConsumer      string
+	natsEncryptionKey string
+	stats             *ProcessStats
+	storage           Storage
+}
+
+func NewNatsListener(encryptionKey string, storage Storage, options ...NATSListenerOption) (Listener, error) {
+	l := &natsListener{
+		natsServerURL:     "localhost:4222",
+		natsStream:        "HASHUP",
+		natsSubject:       "FILES",
+		natsConsumer:      "hsnats-store-consumer",
+		natsEncryptionKey: encryptionKey,
+		storage:           storage,
+	}
+	if encryptionKey == "" {
+		return nil, fmt.Errorf("encryption key is required")
+	}
+
+	for _, option := range options {
+		option(l)
+	}
+
+	return l, nil
+}
+
 func (l *natsListener) Listen(ctx context.Context) error {
 	// Connect to NATS with JetStream enabled
 	nc, err := nats.Connect(l.natsServerURL)
