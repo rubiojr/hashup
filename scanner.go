@@ -48,7 +48,7 @@ func runScanner(clictx *cli.Context) error {
 	// Count and print the number of files to be indexed
 	go func() {
 		tnow := time.Now()
-		fileCount := <-FileCounter(rootDir).Chan
+		fileCount = <-FileCounter(rootDir).Chan
 		elapsed := time.Since(tnow)
 		log.Printf("Counted %d files in %s\n", fileCount, elapsed)
 	}()
