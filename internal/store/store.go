@@ -14,7 +14,7 @@ var ErrFileInfoExists = errors.New("file info already exists")
 var ErrFileHashExists = errors.New("file hash already exists")
 
 type Storage interface {
-	Store(context.Context, *types.ScannedFile) (*FileStored, error)
+	Store(context.Context, *types.ScannedFile) (FileStored, error)
 }
 
 type StorageOption func(*sqliteStorage)
