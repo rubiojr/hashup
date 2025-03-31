@@ -44,15 +44,12 @@ func runScanner(clictx *cli.Context) error {
 	}
 
 	var fileCount int64
-	// Count the number of files to be indexed
+	// Count and print the number of files to be indexed
 	go func() {
 		tnow := time.Now()
-		counter := FileCounter(rootDir)
-		select {
-		case fileCount = <-counter.Chan:
-			elapsed := time.Since(tnow)
-			log.Printf("Counted %d files in %s\n", fileCount, elapsed)
-		}
+		fileCount := <-FileCounter(rootDir).Chan
+		elapsed := time.Since(tnow)
+		log.Printf("Counted %d files in %s\n", fileCount, elapsed)
 	}()
 
 	var ignoreList []string
