@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/urfave/cli/v2"
 )
@@ -166,6 +167,17 @@ func main() {
 				},
 				Action: func(c *cli.Context) error {
 					return setupConfig(c.Bool("force"))
+				},
+			},
+			{
+				Name:  "version",
+				Usage: "HashUp version",
+				Flags: []cli.Flag{},
+				Action: func(c *cli.Context) error {
+					if bi, ok := debug.ReadBuildInfo(); ok {
+						fmt.Println(bi.Main.Version)
+					}
+					return nil
 				},
 			},
 		},

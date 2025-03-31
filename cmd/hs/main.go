@@ -24,6 +24,7 @@ func main() {
 		commandAdmin(),
 		commandServe(),
 		commandServeWeb(),
+		commandVersion(),
 	)
 
 	err := app.Run(os.Args)
