@@ -66,8 +66,8 @@ func NewSqliteStorage(dbPath string) (*sqliteStorage, error) {
 	return storage, nil
 }
 
-func (s *sqliteStorage) Store(ctx context.Context, fileMsg *types.ScannedFile) (*FileStored, error) {
-	recordStored := &FileStored{
+func (s *sqliteStorage) Store(ctx context.Context, fileMsg *types.ScannedFile) (FileStored, error) {
+	recordStored := FileStored{
 		FileHash: false,
 		FileInfo: false,
 	}
@@ -76,13 +76,13 @@ func (s *sqliteStorage) Store(ctx context.Context, fileMsg *types.ScannedFile) (
 	recordStored.FileHash = err == nil
 
 	if err != nil && hashID == -1 {
-		return recordStored, fmt.Errorf("failed to save hash to database: %v", err)
+		return recordStored, fmt.Errorf("failed to save hash to database: %w", err)
 	}
 
 	err = s.saveFileInfo(hashID, fileMsg)
 	recordStored.FileInfo = err == nil
 	if err != nil && err != ErrFileInfoExists {
-		return recordStored, fmt.Errorf("failed to save file info to database: %v", err)
+		return recordStored, fmt.Errorf("failed to save file info to database: %w", err)
 	}
 
 	return recordStored, nil
@@ -100,14 +100,14 @@ func (s *sqliteStorage) saveFileHash(hash string) (int64, error) {
 	if err == sql.ErrNoRows {
 		result, err := s.pInsertHash.Exec(hash)
 		if err != nil {
-			return hashID, fmt.Errorf("failed to insert file hash: %v", err)
+			return hashID, fmt.Errorf("failed to insert file hash: %w", err)
 		}
 		hashID, err = result.LastInsertId()
 		if err != nil {
-			return hashID, fmt.Errorf("failed to get last insert ID: %v", err)
+			return hashID, fmt.Errorf("failed to get last insert ID: %w", err)
 		}
-	} else if err != nil {
-		return hashID, fmt.Errorf("failed to query file hash: %v", err)
+	} else {
+		return hashID, fmt.Errorf("failed to query file hash: %w", err)
 	}
 
 	return hashID, nil
@@ -118,15 +118,15 @@ type FileStored struct {
 	FileInfo bool
 }
 
-func (r *FileStored) Dirty() bool {
+func (r FileStored) Dirty() bool {
 	return r.FileHash || r.FileInfo
 }
 
-func (r *FileStored) Both() bool {
+func (r FileStored) Both() bool {
 	return r.FileHash && r.FileInfo
 }
 
-func (r *FileStored) Clean() bool {
+func (r FileStored) Clean() bool {
 	return !r.FileHash && !r.FileInfo
 }
 
@@ -152,14 +152,14 @@ func (s *sqliteStorage) saveFileInfo(hashID int64, fileMsg *types.ScannedFile) e
 			fileMsg.Hostname, fileMsg.Extension, fileMsg.Hash,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to insert file info: %v", err)
+			return fmt.Errorf("failed to insert file info: %w", err)
 		}
 		fileID, err = result.LastInsertId()
 		if err != nil {
-			return fmt.Errorf("failed to get last insert ID: %v", err)
+			return fmt.Errorf("failed to get last insert ID: %w", err)
 		}
 		return nil
 	}
 
-	return fmt.Errorf("failed to query file info: %v", err)
+	return fmt.Errorf("failed to query file info: %w", err)
 }

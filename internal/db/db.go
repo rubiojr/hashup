@@ -12,10 +12,11 @@ var Schema string
 // Open a SQLite database with appropriate pragmas
 func OpenDatabase(dbPath string) (*sql.DB, error) {
 	pragmas := []string{
-		"_foreign_keys=ON",                 // Enable foreign key constraints
-		"_journal_mode=WAL",                // Use WAL mode for better concurrency
-		fmt.Sprintf("_busy_timeout=%d", 5), // Set busy timeout
-		"_cache_size=-20000",               // Use 20MB page cache (negative value = kilobytes)
+		"_foreign_keys=ON",                    // Enable foreign key constraints
+		"_journal_mode=WAL",                   // Use WAL mode for better concurrency
+		fmt.Sprintf("_busy_timeout=%d", 5000), // Set busy timeout
+		"_cache_size=-20000",                  // Use 20MB page cache (negative value = kilobytes)
+		"_synchronous=NORMAL",                 // Ensure full synchronous mode
 	}
 	plist := ""
 	for _, pragma := range pragmas {
