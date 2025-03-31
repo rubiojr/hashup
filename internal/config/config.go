@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/rubiojr/hashup/internal/cache"
@@ -42,9 +43,17 @@ type ScannerConfig struct {
 	CachePath           string `toml:"cache_path"`
 }
 
-func (c Config) AbsPath(file string) string {
+func (c Config) NormalizePath(file string) string {
 	if file == "" {
 		return ""
+	}
+
+	if strings.HasPrefix(file, "~") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			panic(err)
+		}
+		file = filepath.Join(homeDir, file[1:])
 	}
 
 	if filepath.IsAbs(file) {
@@ -95,9 +104,10 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to decode config file: %v", err)
 	}
 
-	config.Main.ClientKey = config.AbsPath(config.Main.ClientKey)
-	config.Main.ClientCert = config.AbsPath(config.Main.ClientCert)
-	config.Main.CACert = config.AbsPath(config.Main.CACert)
+	config.Main.ClientKey = config.NormalizePath(config.Main.ClientKey)
+	config.Main.ClientCert = config.NormalizePath(config.Main.ClientCert)
+	config.Main.CACert = config.NormalizePath(config.Main.CACert)
+	config.Store.DBPath = config.NormalizePath(config.Store.DBPath)
 
 	return &config, nil
 }
@@ -141,17 +151,17 @@ func LoadConfigFromCLI(ctx *cli.Context) (*Config, error) {
 
 	clientCert := ctx.String("client-cert")
 	if clientCert != "" {
-		cfg.Main.ClientCert = cfg.AbsPath(clientCert)
+		cfg.Main.ClientCert = cfg.NormalizePath(clientCert)
 	}
 
 	clientKey := ctx.String("client-key")
 	if clientKey != "" {
-		cfg.Main.ClientKey = cfg.AbsPath(clientKey)
+		cfg.Main.ClientKey = cfg.NormalizePath(clientKey)
 	}
 
 	caCert := ctx.String("ca-cert")
 	if caCert != "" {
-		cfg.Main.CACert = cfg.AbsPath(caCert)
+		cfg.Main.CACert = cfg.NormalizePath(caCert)
 	}
 
 	return cfg, nil
