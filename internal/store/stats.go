@@ -89,23 +89,19 @@ func (stats *ProcessStats) PrintStats() {
 
 	now := time.Now()
 	elapsed := now.Sub(stats.startTime)
-	timeSinceUpdate := now.Sub(stats.lastUpdateTime)
+	//timeSinceUpdate := now.Sub(stats.lastUpdateTime)
 
 	// Calculate rates per second
 	var msgsPerSec, writtenPerSec, skippedPerSec, presentPerSec float64
 	if elapsed.Seconds() > 0 {
 		msgsPerSec = float64(stats.messagesReceived) / elapsed.Seconds()
-	}
-
-	// Calculate rates since last update
-	if timeSinceUpdate.Seconds() > 0 {
-		writtenPerSec = float64(stats.recordsWritten) / timeSinceUpdate.Seconds()
-		skippedPerSec = float64(stats.recordsSkipped) / timeSinceUpdate.Seconds()
-		presentPerSec = float64(stats.recordsPresent) / timeSinceUpdate.Seconds()
+		writtenPerSec = float64(stats.recordsWritten) / elapsed.Seconds()
+		skippedPerSec = float64(stats.recordsSkipped) / elapsed.Seconds()
+		presentPerSec = float64(stats.recordsPresent) / elapsed.Seconds()
 	}
 
 	fmt.Println("\n-------------------------")
-	fmt.Printf("HASHUP STATS (%s)\n", elapsed.Round(time.Second))
+	fmt.Printf("HASHUP STATS (elapsed %s)\n", elapsed.Round(time.Second))
 	fmt.Println("-------------------------")
 	fmt.Printf("Messages received: %d (%.1f/sec)\n", stats.messagesReceived, msgsPerSec)
 	fmt.Printf("Records written:   %d (%.1f/sec)\n", stats.recordsWritten, writtenPerSec)
