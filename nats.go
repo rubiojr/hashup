@@ -48,7 +48,7 @@ func startEmbeddedNATSServer(c *cli.Context) error {
 		opts.StoreDir = filepath.Join(homeDir, ".local", "share", "hashup", "nats")
 	}
 
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
+	if err := os.MkdirAll(opts.StoreDir, 0755); err != nil {
 		return fmt.Errorf("failed to create data directory: %v", err)
 	}
 
