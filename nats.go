@@ -40,20 +40,16 @@ func startEmbeddedNATSServer(c *cli.Context) error {
 	}
 
 	dataDir := c.String("data-dir")
-	if dataDir == "" {
+	if dataDir != "" {
 		opts.StoreDir = dataDir
 	}
 
 	if opts.StoreDir == "" {
-		dataDir = filepath.Join(homeDir, ".local", "share", "hashup", "nats")
+		opts.StoreDir = filepath.Join(homeDir, ".local", "share", "hashup", "nats")
 	}
 
-	if dataDir != "" {
-		if err := os.MkdirAll(dataDir, 0755); err != nil {
-			return fmt.Errorf("failed to create data directory: %v", err)
-		}
-
-		opts.StoreDir = dataDir
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		return fmt.Errorf("failed to create data directory: %v", err)
 	}
 
 	// This is required for HashUp
