@@ -22,6 +22,12 @@ func commandTag() *cli.Command {
 				Usage:    "Tags to add (comma-separated)",
 				Required: true,
 			},
+			&cli.StringFlag{
+				Name:    "db",
+				Aliases: []string{"d"},
+				Usage:   "Path to the database file",
+				Value:   "hs.db",
+			},
 		},
 		Action: func(c *cli.Context) error {
 			if c.NArg() == 0 {
@@ -31,13 +37,8 @@ func commandTag() *cli.Command {
 			filePath := c.Args().Get(0)
 			tags := c.StringSlice("tags")
 
-			dbPath, err := getDBPath()
-			if err != nil {
-				return err
-			}
-
 			// Connect to SQLite database
-			db, err := sql.Open("sqlite3", dbPath)
+			db, err := dbConn(c.String("db"))
 			if err != nil {
 				return fmt.Errorf("failed to open database: %v", err)
 			}

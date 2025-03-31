@@ -51,14 +51,15 @@ func commandFileStats() *cli.Command {
 				Value:    10,
 				Required: false,
 			},
+			&cli.StringFlag{
+				Name:     "db",
+				Usage:    "Database path",
+				Value:    "",
+				Required: false,
+			},
 		},
 		Action: func(c *cli.Context) error {
-			dbPath, err := getDBPath()
-			if err != nil {
-				return err
-			}
-
-			db, err := sql.Open("sqlite3", dbPath)
+			db, err := dbConn(c.String("db"))
 			if err != nil {
 				return fmt.Errorf("failed to open database: %v", err)
 			}

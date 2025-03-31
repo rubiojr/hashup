@@ -22,6 +22,12 @@ func commandSearch() *cli.Command {
 				Required: false,
 			},
 			&cli.StringFlag{
+				Name:     "db",
+				Usage:    "Database path",
+				Value:    "",
+				Required: false,
+			},
+			&cli.StringFlag{
 				Name:     "host",
 				Usage:    "Filter by host",
 				Value:    "",
@@ -67,7 +73,7 @@ func commandSearch() *cli.Command {
 func searchByTag(c *cli.Context) error {
 	tag := c.String("tag")
 	limit := c.String("limit")
-	db, err := dbConn("")
+	db, err := dbConn(c.String("db"))
 	defer db.Close()
 
 	query := `
