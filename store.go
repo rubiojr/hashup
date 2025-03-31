@@ -28,13 +28,19 @@ func runStore(clictx *cli.Context) error {
 	stats := store.NewProcessStats()
 	stats.StartStatsPrinters(ctx, cfg.Store.StatsInterval)
 
-	opts := []store.Option{
+	opts := []store.NATSListenerOption{
 		store.WithStats(stats),
 		store.WithNatsStream(cfg.Main.NatsStream),
 		store.WithNatsSubject(cfg.Main.NatsSubject),
 		store.WithNatsURL(cfg.Main.NatsServerURL),
 	}
-	st, err := store.NewSqliteStore(cfg.Store.DBPath, cfg.Main.EncryptionKey, opts...)
+
+	storage, err := store.NewSqliteStorage(cfg.Store.DBPath)
+	if err != nil {
+		return err
+	}
+
+	listener, err := store.NewNatsListener(cfg.Main.EncryptionKey, storage, opts...)
 	if err != nil {
 		return err
 	}
@@ -50,7 +56,10 @@ func runStore(clictx *cli.Context) error {
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		st.Listen(ctx)
+		err := listener.Listen(ctx)
+		if err != nil {
+			log.Errorf("error listening for files: %v", err)
+		}
 		signalCh <- syscall.SIGINT
 	}()
 

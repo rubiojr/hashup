@@ -18,7 +18,7 @@ func TestStore(t *testing.T) {
 	ctx := context.Background()
 
 	// Create store instance
-	s := &sqliteStore{
+	s := &sqliteStorage{
 		db: db,
 	}
 
