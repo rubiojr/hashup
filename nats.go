@@ -22,9 +22,10 @@ func startEmbeddedNATSServer(c *cli.Context) error {
 	}
 
 	conf := c.String("config")
-	if opts.ConfigFile == "" {
+	if conf == "" {
 		conf = filepath.Join(homeDir, ".config", "hashup", "nats.conf")
 	}
+	opts.ConfigFile = conf
 	err = opts.ProcessConfigFile(conf)
 	if err != nil {
 		return fmt.Errorf("failed to process config file: %v", err)
