@@ -11,8 +11,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/nats-io/nats-server/v2 v2.11.0
 	github.com/nats-io/nats.go v1.39.1
-	github.com/rqlite/gorqlite v0.0.0-20250128004930-114c7828b55a
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.5
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 )

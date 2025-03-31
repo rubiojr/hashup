@@ -63,13 +63,13 @@ func (c Config) NormalizePath(file string) string {
 }
 
 // DefaultConfig returns a configuration with default values
-func DefaultConfig() Config {
+func DefaultConfig() *Config {
 	cdir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
 
-	return Config{
+	return &Config{
 		Path: filepath.Join(cdir, "config.toml"),
 		Main: MainConfig{
 			NatsServerURL: "http://localhost:4222",
@@ -108,7 +108,7 @@ func LoadConfig(path string) (*Config, error) {
 	config.Main.CACert = config.NormalizePath(config.Main.CACert)
 	config.Store.DBPath = config.NormalizePath(config.Store.DBPath)
 
-	return &config, nil
+	return config, nil
 }
 
 func LoadConfigFromCLI(ctx *cli.Context) (*Config, error) {
