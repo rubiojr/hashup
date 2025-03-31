@@ -65,7 +65,7 @@ func commandSearch() *cli.Command {
 			if extFilter != "" {
 				return searchByExt(c, filename)
 			}
-			return searchFiles(filename)
+			return searchFiles(c, filename)
 		},
 	}
 }
@@ -96,7 +96,7 @@ func searchByTag(c *cli.Context) error {
 func searchByExt(c *cli.Context, filename string) error {
 	ext := c.String("ext")
 	limit := c.String("limit")
-	db, err := dbConn("")
+	db, err := dbConn(c.String("db"))
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -121,7 +121,7 @@ func searchByExt(c *cli.Context, filename string) error {
 func searchByHost(c *cli.Context, filename string) error {
 	host := c.String("host")
 	limit := c.String("limit")
-	db, err := dbConn("")
+	db, err := dbConn(c.String("db"))
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
@@ -143,8 +143,8 @@ func searchByHost(c *cli.Context, filename string) error {
 	return printRows(rows)
 }
 
-func searchFiles(filename string) error {
-	db, err := dbConn("")
+func searchFiles(c *cli.Context, filename string) error {
+	db, err := dbConn(c.String("db"))
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}

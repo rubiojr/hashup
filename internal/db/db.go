@@ -4,6 +4,10 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/rubiojr/hashup/internal/log"
 )
 
 //go:embed hashup.sql
@@ -11,6 +15,7 @@ var Schema string
 
 // Open a SQLite database with appropriate pragmas
 func OpenDatabase(dbPath string) (*sql.DB, error) {
+	log.Debugf("Opening database %s", dbPath)
 	pragmas := []string{
 		"_foreign_keys=ON",                    // Enable foreign key constraints
 		"_journal_mode=WAL",                   // Use WAL mode for better concurrency
@@ -21,6 +26,9 @@ func OpenDatabase(dbPath string) (*sql.DB, error) {
 	plist := ""
 	for _, pragma := range pragmas {
 		plist += fmt.Sprintf("&%s", pragma)
+	}
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+		return nil, fmt.Errorf("failed to create database directory: %v", err)
 	}
 	dsn := fmt.Sprintf("file:%s?mode=rwc%s", dbPath, plist)
 
