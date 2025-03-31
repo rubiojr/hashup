@@ -98,6 +98,7 @@ func LoadConfig(path string) (*Config, error) {
 	config.Main.ClientKey = config.AbsPath(config.Main.ClientKey)
 	config.Main.ClientCert = config.AbsPath(config.Main.ClientCert)
 	config.Main.CACert = config.AbsPath(config.Main.CACert)
+	config.Store.DBPath = config.AbsPath(config.Store.DBPath)
 
 	return &config, nil
 }
