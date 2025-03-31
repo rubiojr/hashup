@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+# docker buildx create --name buildx-container --driver=docker-container --use
+docker buildx build \
+ --tag ghcr.io/rubiojr/hashup:latest \
+ --platform linux/arm64/v8,linux/amd64 \
+ --builder buildx-container \
+ "$@" .
+
