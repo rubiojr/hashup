@@ -68,10 +68,17 @@ func main() {
 						Name:  "ca-cert",
 						Usage: "TLS CA cert",
 					},
+					&cli.StringFlag{
+						Name:  "every",
+						Usage: "Run the scanner regularly. Interval specified in seconds(s), minutes(m) or hours(h)",
+					},
 				},
 				Action: func(c *cli.Context) error {
 					if c.Bool("debug") {
 						os.Setenv("HASHUP_DEBUG", "1")
+					}
+					if c.String("every") != "" {
+						return runEvery(c)
 					}
 					return runScanner(c)
 				},

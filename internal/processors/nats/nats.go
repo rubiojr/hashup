@@ -168,7 +168,6 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
 			return fmt.Errorf("failed to encrypt message: %v", err)
 		}
 		publishData = encryptedData
-		log.Debugf("Message encrypted: %d bytes -> %d bytes", len(plainData), len(publishData))
 	} else {
 		publishData = plainData
 	}

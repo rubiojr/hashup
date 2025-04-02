@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +14,7 @@ type FileCount struct {
 	Errors []error
 }
 
-func FileCounter(root string) *FileCount {
+func FileCounter(ctx context.Context, root string) *FileCount {
 	count := &FileCount{
 		Chan: make(chan int64),
 	}
@@ -25,6 +26,10 @@ func FileCounter(root string) *FileCount {
 			if err != nil {
 				log.Printf("error walking path %s: %v", path, err)
 				return nil
+			}
+
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
 			counter++
 

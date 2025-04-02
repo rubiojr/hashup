@@ -104,7 +104,7 @@ func (fc *FileCache) Save() error {
 		return fmt.Errorf("failed to create cache directory: %v", err)
 	}
 
-	log.Printf("Saving file cache to %s", fc.cachePath)
+	log.Debugf("Saving file cache to %s", fc.cachePath)
 	return fc.cache.SaveToFile(fc.cachePath)
 }
 

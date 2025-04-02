@@ -125,8 +125,13 @@ func (s *DirectoryScanner) incCounter() {
 }
 
 func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processors.Processor) (int64, error) {
-	defer s.pool.Stop()
-	defer s.cache.Save()
+	defer func() {
+		s.pool.Stop()
+		err := s.cache.Save()
+		if err != nil {
+			log.Errorf("Error saving cache: %v", err)
+		}
+	}()
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -140,28 +145,35 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+
+		if err != nil {
+			log.Errorf("Error accessing %q: %v", path, err)
+			return err
+		}
+
+		count++
 		s.incCounter()
 
 		if s.ignoreHidden && info.IsDir() && len(info.Name()) > 1 && info.Name()[0] == '.' {
-			log.Printf("ignoring hidden directory: %s", path)
+			log.Debugf("ignoring hidden directory: %s", path)
 			return filepath.SkipDir
 		}
 
 		if s.ignoreHidden && info.Name()[0] == '.' {
-			log.Printf("ignoring hidden file: %s", path)
+			log.Debugf("ignoring hidden file: %s", path)
 			return nil
 		}
 
 		// Skip files that cannot be accessed.
 		absPath, err := filepath.Abs(path)
 		if err != nil {
-			log.Printf("Error accessing %q: %v", path, err)
+			log.Debugf("Error accessing %q: %v", path, err)
 			return nil
 		}
 
 		// Skip ignored directories
 		if info.IsDir() && slices.Contains(ignoredDirectories, info.Name()) {
-			log.Printf("ignoring directory %s", path)
+			log.Debugf("ignoring directory %s", path)
 			return filepath.SkipDir
 		}
 
@@ -172,13 +184,12 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 
 		// return if the file is not a regular file
 		if !info.Mode().IsRegular() {
-			//log.Printf("Warn: not a regular file %q", path)
 			return nil
 		}
 
 		// Skip ignored files
 		if slices.Contains(ignoredFiles, info.Name()) {
-			log.Printf("ignoring file %s", path)
+			log.Debugf("ignoring file %s", path)
 			return nil
 		}
 
@@ -186,7 +197,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		for _, pattern := range s.ignoreList {
 			matched, _ := regexp.MatchString(pattern, absPath)
 			if matched {
-				log.Printf("ignoring path match %s", path)
+				log.Debugf("ignoring path match %s", path)
 				if info.IsDir() {
 					return filepath.SkipDir
 				}
@@ -226,18 +237,15 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 				Hostname:  hostname,
 			}
 
+			log.Debugf("Processing file %s\n", absPath)
 			err = processor.Process(absPath, msg)
 			if err != nil {
-				if ctx.Err() != nil {
-					return ctx.Err()
-				}
-				log.Errorf("failed processing %q: %v", path, err)
+				log.Errorf("failed processing %q: %v", absPath, err)
 			}
+			log.Debugf("Marking file %s processed\n", absPath)
 			s.cache.MarkFileProcessed(absPath, fileHash)
 			return nil
 		}
-
-		count++
 		s.pool.Submit(f)
 		return nil
 	})
