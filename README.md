@@ -31,6 +31,10 @@ See [Quickstart](docs/quickstart.md).
 - File content indexing and search
 - File retrieval from remote nodes
 
+## Releases
+
+Releases follow the [Semantic Versioning](https://semver.org/) specification.
+
 ## License
 
 See [LICENSE](LICENSE) for details.
