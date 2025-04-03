@@ -59,28 +59,26 @@ func Search(db *sql.DB, query string, extensions []string, limit int) ([]*types.
 		WHERE (file_path LIKE ? OR file_hash LIKE ?)
 	`
 
+	var args []any
+	args = append(args, "%"+query+"%", "%"+query+"%")
+
 	if len(extensions) > 0 {
 		placeholders := make([]string, len(extensions))
 		for i := range extensions {
 			placeholders[i] = "?"
 		}
 		sqlQuery += fmt.Sprintf(" AND extension IN (%s)", strings.Join(placeholders, ","))
+		for _, ext := range extensions {
+			args = append(args, strings.TrimSpace(ext))
+		}
 	}
 
 	sqlQuery += `
 		ORDER BY modified_date DESC
 	`
 
-	var args []any
-	args = append(args, "%"+query+"%", "%"+query+"%")
-
-	if len(extensions) > 0 {
-		for _, ext := range extensions {
-			args = append(args, strings.TrimSpace(ext))
-		}
-	}
-
 	sqlQuery += fmt.Sprintf("LIMIT %d", limit)
+	fmt.Println(sqlQuery)
 
 	rows, err := db.Query(sqlQuery, args...)
 	if err != nil {

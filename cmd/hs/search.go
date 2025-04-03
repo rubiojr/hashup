@@ -6,6 +6,9 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/rubiojr/hashup/cmd/hs/types"
+	"github.com/rubiojr/hashup/internal/api"
+	hsdb "github.com/rubiojr/hashup/internal/db"
 	"github.com/urfave/cli/v2"
 )
 
@@ -15,10 +18,10 @@ func commandSearch() *cli.Command {
 		Aliases: []string{"s"},
 		Usage:   "Search for files by filename",
 		Flags: []cli.Flag{
-			&cli.StringFlag{
+			&cli.IntFlag{
 				Name:     "limit",
 				Usage:    "Number of results to return",
-				Value:    "100",
+				Value:    100,
 				Required: false,
 			},
 			&cli.StringFlag{
@@ -44,20 +47,30 @@ func commandSearch() *cli.Command {
 				Value:    "",
 				Required: false,
 			},
+			&cli.StringFlag{
+				Name:     "server-url",
+				Usage:    "HashUp API server URL",
+				Required: false,
+			},
 		},
 		Action: func(c *cli.Context) error {
 			hostFilter := c.String("host")
 			extFilter := c.String("extension")
+			serverURL := c.String("server-url")
+
+			filename := c.Args().Get(0)
+			if c.NArg() == 0 {
+				return fmt.Errorf("filename argument is required")
+			}
+
+			if serverURL != "" {
+				return searchServer(serverURL, filename)
+			}
 
 			if c.String("tag") != "" {
 				return searchByTag(c)
 			}
 
-			if c.NArg() == 0 {
-				return fmt.Errorf("filename argument is required")
-			}
-
-			filename := c.Args().Get(0)
 			if hostFilter != "" {
 				return searchByHost(c, filename)
 			}
@@ -95,27 +108,19 @@ func searchByTag(c *cli.Context) error {
 
 func searchByExt(c *cli.Context, filename string) error {
 	ext := c.String("ext")
-	limit := c.String("limit")
+	limit := c.Int("limit")
 	db, err := dbConn(c.String("db"))
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
 	defer db.Close()
 
-	query := `
-		SELECT file_path, file_size, modified_date, host, extension, file_hash
-		FROM file_info
-		WHERE (file_path LIKE ? OR file_hash LIKE ?) AND extension = ?
-		LIMIT ?
-	`
-
-	rows, err := db.Query(query, "%"+filename+"%", "%"+filename+"%", ext, limit)
-	if err != nil {
-		return fmt.Errorf("failed to query database: %v", err)
+	r, err := hsdb.Search(db, filename, []string{ext}, limit)
+	for _, result := range r {
+		printFileResult(result)
 	}
-	defer rows.Close()
 
-	return printRows(rows)
+	return nil
 }
 
 func searchByHost(c *cli.Context, filename string) error {
@@ -150,20 +155,12 @@ func searchFiles(c *cli.Context, filename string) error {
 	}
 	defer db.Close()
 
-	query := `
-		SELECT file_path, file_size, modified_date, host, extension, file_hash
-		FROM file_info
-		WHERE file_path LIKE ? OR file_hash LIKE ?
-		LIMIT 100
-	`
-
-	rows, err := db.Query(query, "%"+filename+"%", "%"+filename+"%")
-	if err != nil {
-		return fmt.Errorf("failed to query database: %v", err)
+	r, err := hsdb.Search(db, filename, []string{}, 100)
+	for _, result := range r {
+		printFileResult(result)
 	}
-	defer rows.Close()
 
-	return printRows(rows)
+	return nil
 }
 
 func printRows(rows *sql.Rows) error {
@@ -192,4 +189,28 @@ func printRows(rows *sql.Rows) error {
 	}
 
 	return nil
+}
+
+func searchServer(serverURL string, filename string) error {
+	client := api.NewClient(serverURL)
+	r, err := client.Search(filename)
+	if err != nil {
+		return fmt.Errorf("failed to search server: %v", err)
+	}
+
+	for _, result := range r {
+		printFileResult(result)
+	}
+
+	return nil
+}
+
+func printFileResult(result *types.FileResult) {
+	fmt.Printf("File Path: %s\n", result.FilePath)
+	fmt.Printf("File Size: %d bytes\n", result.FileSize)
+	fmt.Printf("Modified Date: %s\n", result.ModifiedDate)
+	fmt.Printf("Host: %s\n", result.Host)
+	fmt.Printf("Extension: %s\n", result.Extension)
+	fmt.Printf("Hash: %s\n", result.FileHash)
+	fmt.Println(strings.Repeat("-", 40))
 }
