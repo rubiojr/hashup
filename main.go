@@ -6,10 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"time"
 
+	"filippo.io/age"
 	"github.com/rubiojr/hashup/internal/api"
 	"github.com/rubiojr/hashup/internal/config"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/term"
 )
 
 //go:embed configs
@@ -20,6 +23,33 @@ func main() {
 		Name:  "hashup",
 		Usage: "File inventory tool",
 		Commands: []*cli.Command{
+			{
+				Name:  "keygen",
+				Usage: "Generate encryption keys",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "config",
+						Usage: "Path to the configuration file",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					out := os.Stdout
+					k, err := age.GenerateX25519Identity()
+					if err != nil {
+						return fmt.Errorf("internal error: %v", err)
+					}
+
+					if !term.IsTerminal(int(out.Fd())) {
+						fmt.Fprintf(os.Stderr, "Public key: %s\n", k.Recipient())
+					}
+
+					fmt.Fprintf(out, "# created: %s\n", time.Now().Format(time.RFC3339))
+					fmt.Fprintf(out, "# public key: %s\n", k.Recipient())
+					fmt.Fprintf(out, "%s\n", k)
+
+					return nil
+				},
+			},
 			{
 				Name:  "api",
 				Usage: "Serve index API",

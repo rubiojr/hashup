@@ -2,7 +2,6 @@ package nats
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -29,7 +28,7 @@ type natsProcessor struct {
 	encrypt     bool   // field to control encryption behavior
 	cache       *cache.FileCache
 	statsChan   chan Stats
-	crypto      *crypto.Machine
+	crypto      crypto.Machine
 	clientCert  string
 	clientKey   string
 	caCert      string
@@ -47,10 +46,7 @@ func WithStatsChannel(ch chan Stats) Option {
 // WithEncryptionKey sets a specific encryption key
 func WithEncryptionKey(key string) Option {
 	return func(np *natsProcessor) {
-		// Convert the key to a fixed length by hashing it
-		hasher := sha256.New()
-		hasher.Write([]byte(key))
-		np.encryptKey = hasher.Sum(nil)
+		np.encryptKey = []byte(key)
 	}
 }
 func WithClientCert(cert string) Option {
@@ -137,7 +133,7 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 		return nil, fmt.Errorf("encryption enabled but no key provided")
 	}
 
-	processor.crypto, err = crypto.New(processor.encryptKey)
+	processor.crypto, err = crypto.NewAge(string(processor.encryptKey))
 	if err != nil {
 		return nil, err
 	}

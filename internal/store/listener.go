@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -146,13 +145,7 @@ func (l *natsListener) Listen(ctx context.Context) error {
 	}
 	defer sub.Unsubscribe()
 
-	var ek []byte
-
-	// Derive a 32-byte key for AES-256 from the encryption key
-	hasher := sha256.New()
-	hasher.Write([]byte(l.natsEncryptionKey))
-	ek = hasher.Sum(nil)
-	cryptom, err := crypto.New(ek)
+	cryptom, err := crypto.NewAge(l.natsEncryptionKey)
 	if err != nil {
 		return fmt.Errorf("failed to create crypto instance: %v", err)
 	}

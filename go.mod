@@ -3,6 +3,7 @@ module github.com/rubiojr/hashup
 go 1.23.4
 
 require (
+	filippo.io/age v1.2.1
 	github.com/BurntSushi/toml v1.4.0
 	github.com/VictoriaMetrics/fastcache v1.12.2
 	github.com/a-h/templ v0.3.856
@@ -16,6 +17,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.5
 	github.com/vmihailenco/msgpack/v5 v5.4.1
+	golang.org/x/term v0.30.0
 )
 
 require (
@@ -35,7 +37,6 @@ require (
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

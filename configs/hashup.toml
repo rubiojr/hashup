@@ -1,6 +1,11 @@
 [main]
 nats_server_url = "http://user:secret@localhost:4222"
-encryption_key  = "super-secret-key"
+# IMPORTANT: replace this key
+#
+# `hashup keygen` or `age-keygen` (https://github.com/FiloSottile/age)
+# can be used to generate it.
+#
+encryption_key  = "AGE-SECRET-KEY-1FDQ7Q24T2Q3CC6SFLS33PV5P3A59RH89PCQ0PAU6FQ8GNWD9HNASTSQP57"
 nats_stream    = "HASHUP"
 nats_subject   = "FILES"
 
