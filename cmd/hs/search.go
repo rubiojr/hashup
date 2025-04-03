@@ -57,6 +57,7 @@ func commandSearch() *cli.Command {
 			hostFilter := c.String("host")
 			extFilter := c.String("extension")
 			serverURL := c.String("server-url")
+			limit := c.Int("limit")
 
 			filename := c.Args().Get(0)
 			if c.NArg() == 0 {
@@ -64,7 +65,7 @@ func commandSearch() *cli.Command {
 			}
 
 			if serverURL != "" {
-				return searchServer(serverURL, filename)
+				return searchServer(serverURL, filename, extFilter, hostFilter, limit)
 			}
 
 			if c.String("tag") != "" {
@@ -182,9 +183,9 @@ func printRows(rows *sql.Rows) error {
 	return nil
 }
 
-func searchServer(serverURL string, filename string) error {
+func searchServer(serverURL string, filename string, extFilter string, hostFilter string, limit int) error {
 	client := api.NewClient(serverURL)
-	r, err := client.Search(filename)
+	r, err := client.Search(filename, []string{extFilter}, []string{hostFilter}, limit)
 	if err != nil {
 		return fmt.Errorf("failed to search server: %v", err)
 	}

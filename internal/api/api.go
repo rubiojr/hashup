@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -60,9 +61,13 @@ func NewClient(serverURL string) *Client {
 	return &Client{client: client, serverURL: serverURL}
 }
 
-func (c *Client) Search(query string) ([]*types.FileResult, error) {
+func (c *Client) Search(query string, exts []string, hosts []string, limit int) ([]*types.FileResult, error) {
 	// Build the URL with query parameters
-	urlStr := fmt.Sprintf("%s/search?q=%s", c.serverURL, url.QueryEscape(query))
+	params := url.Values{}
+	params.Set("ext", strings.Join(exts, ","))
+	params.Set("host", strings.Join(hosts, ","))
+	params.Set("limit", strconv.Itoa(limit))
+	urlStr := fmt.Sprintf("%s/search?q=%s&%s", c.serverURL, url.QueryEscape(query), params.Encode())
 
 	// Create request
 	req, err := http.NewRequest("GET", urlStr, nil)
@@ -149,7 +154,18 @@ func searchHandler(dbPath string) http.HandlerFunc {
 			hosts = append(hosts, host)
 		}
 
-		results, err := hsdb.Search(db, query, exts, hosts, 100)
+		limit := r.URL.Query().Get("limit")
+		if limit == "" {
+			limit = "100"
+		}
+
+		ilimit, err := strconv.Atoi(limit)
+		if err != nil {
+			statusJSON(http.StatusBadRequest, errors.New("invalid limit parameter"), w, r)
+			return
+		}
+
+		results, err := hsdb.Search(db, query, exts, hosts, ilimit)
 		if err != nil {
 			statusJSON(http.StatusInternalServerError, err, w, r)
 			return
