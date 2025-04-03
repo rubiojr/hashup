@@ -4,8 +4,11 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 
+	"github.com/rubiojr/hashup/internal/api"
+	"github.com/rubiojr/hashup/internal/config"
 	"github.com/urfave/cli/v2"
 )
 
@@ -17,6 +20,37 @@ func main() {
 		Name:  "hashup",
 		Usage: "File inventory tool",
 		Commands: []*cli.Command{
+			{
+				Name:  "api",
+				Usage: "Serve index API",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "address",
+						Usage: "Address to listen on",
+						Value: "localhost:8448",
+					},
+					&cli.IntFlag{
+						Name:  "limit",
+						Usage: "Maximum number of results to return",
+						Value: 100,
+					},
+					&cli.StringFlag{
+						Name:  "config",
+						Usage: "Path to the configuration file",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					cfgPath := c.String("config")
+					if cfgPath == "" {
+						cfgDir, err := config.DefaultConfigDir()
+						if err != nil {
+							return err
+						}
+						cfgPath = filepath.Join(cfgDir, "config.toml")
+					}
+					return api.Serve(cfgPath, c.String("address"))
+				},
+			},
 			{
 				Name:    "scan",
 				Aliases: []string{"i"},

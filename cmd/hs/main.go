@@ -22,8 +22,6 @@ func main() {
 		commandTag(),
 		commandTags(),
 		commandAdmin(),
-		commandServe(),
-		commandServeWeb(),
 		commandVersion(),
 	)
 
