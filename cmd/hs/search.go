@@ -115,7 +115,7 @@ func searchByExt(c *cli.Context, filename string) error {
 	}
 	defer db.Close()
 
-	r, err := hsdb.Search(db, filename, []string{ext}, limit)
+	r, err := hsdb.Search(db, filename, []string{ext}, []string{}, limit)
 	for _, result := range r {
 		printFileResult(result)
 	}
@@ -125,27 +125,18 @@ func searchByExt(c *cli.Context, filename string) error {
 
 func searchByHost(c *cli.Context, filename string) error {
 	host := c.String("host")
-	limit := c.String("limit")
+	limit := c.Int("limit")
 	db, err := dbConn(c.String("db"))
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %v", err)
 	}
 	defer db.Close()
 
-	query := `
-		SELECT file_path, file_size, modified_date, host, extension, file_hash
-		FROM file_info
-		WHERE (file_path LIKE ? OR file_hash LIKE ?) AND host = ?
-		LIMIT ?
-	`
-
-	rows, err := db.Query(query, "%"+filename+"%", "%"+filename+"%", host, limit)
-	if err != nil {
-		return fmt.Errorf("failed to query database: %v", err)
+	r, err := hsdb.Search(db, filename, []string{}, []string{host}, limit)
+	for _, result := range r {
+		printFileResult(result)
 	}
-	defer rows.Close()
-
-	return printRows(rows)
+	return nil
 }
 
 func searchFiles(c *cli.Context, filename string) error {
@@ -155,7 +146,7 @@ func searchFiles(c *cli.Context, filename string) error {
 	}
 	defer db.Close()
 
-	r, err := hsdb.Search(db, filename, []string{}, 100)
+	r, err := hsdb.Search(db, filename, []string{}, []string{}, 100)
 	for _, result := range r {
 		printFileResult(result)
 	}

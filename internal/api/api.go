@@ -137,7 +137,19 @@ func searchHandler(dbPath string) http.HandlerFunc {
 			return
 		}
 
-		results, err := hsdb.Search(db, query, []string{}, 100)
+		ext := r.URL.Query().Get("ext")
+		exts := []string{}
+		if ext != "" {
+			exts = append(exts, ext)
+		}
+
+		host := r.URL.Query().Get("host")
+		hosts := []string{}
+		if host != "" {
+			hosts = append(hosts, host)
+		}
+
+		results, err := hsdb.Search(db, query, exts, hosts, 100)
 		if err != nil {
 			statusJSON(http.StatusInternalServerError, err, w, r)
 			return

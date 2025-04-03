@@ -51,7 +51,7 @@ func CreateTables(db *sql.DB) error {
 	return err
 }
 
-func Search(db *sql.DB, query string, extensions []string, limit int) ([]*types.FileResult, error) {
+func Search(db *sql.DB, query string, extensions []string, hosts []string, limit int) ([]*types.FileResult, error) {
 	query = strings.Replace(query, " ", "%", -1)
 	sqlQuery := `
 		SELECT file_path, file_size, modified_date, host, extension, file_hash
@@ -64,13 +64,20 @@ func Search(db *sql.DB, query string, extensions []string, limit int) ([]*types.
 
 	if len(extensions) > 0 {
 		placeholders := make([]string, len(extensions))
-		for i := range extensions {
+		for i, ext := range extensions {
 			placeholders[i] = "?"
-		}
-		sqlQuery += fmt.Sprintf(" AND extension IN (%s)", strings.Join(placeholders, ","))
-		for _, ext := range extensions {
 			args = append(args, strings.TrimSpace(ext))
 		}
+		sqlQuery += fmt.Sprintf(" AND extension IN (%s)", strings.Join(placeholders, ","))
+	}
+
+	if len(hosts) > 0 {
+		placeholders := make([]string, len(hosts))
+		for i, host := range hosts {
+			placeholders[i] = "?"
+			args = append(args, strings.TrimSpace(host))
+		}
+		sqlQuery += fmt.Sprintf(" AND host IN (%s)", strings.Join(placeholders, ","))
 	}
 
 	sqlQuery += `
