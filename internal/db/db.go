@@ -78,7 +78,6 @@ func Search(db *sql.DB, query string, extensions []string, limit int) ([]*types.
 	`
 
 	sqlQuery += fmt.Sprintf("LIMIT %d", limit)
-	fmt.Println(sqlQuery)
 
 	rows, err := db.Query(sqlQuery, args...)
 	if err != nil {
