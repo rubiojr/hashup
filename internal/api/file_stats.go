@@ -2,7 +2,6 @@ package api
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -37,7 +36,7 @@ type Stats struct {
 	OtherSizeHuman string           `json:"other_size_human,omitempty"`
 }
 
-func extStats(db *sql.DB, orderBy string, descending bool, host string) (*ExtensionStats, error) {
+func fileStats(db *sql.DB, orderBy string, descending bool, host string, limit int) (*Stats, error) {
 	validColumns := map[string]string{
 		"file_size": "total_size",
 		"size":      "total_size",
@@ -119,11 +118,10 @@ func extStats(db *sql.DB, orderBy string, descending bool, host string) (*Extens
 		return nil, fmt.Errorf("error iterating over rows: %v", err)
 	}
 
-	return all, nil
-
+	return jsonStats(all, host, limit)
 }
 
-func jsonStats(estats *ExtensionStats, host string, limit int) (string, error) {
+func jsonStats(estats *ExtensionStats, host string, limit int) (*Stats, error) {
 	stats := estats.Stats
 	count := len(estats.Stats)
 
@@ -141,7 +139,7 @@ func jsonStats(estats *ExtensionStats, host string, limit int) (string, error) {
 		count = limit
 	}
 
-	response := Stats{
+	response := &Stats{
 		Extensions:     stats,
 		Count:          int64(count),
 		Size:           estats.TotalSize - otherSize,
@@ -162,10 +160,5 @@ func jsonStats(estats *ExtensionStats, host string, limit int) (string, error) {
 		response.OtherSizeHuman = humanize.Bytes(uint64(otherSize))
 	}
 
-	jsonData, err := json.MarshalIndent(response, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal JSON: %v", err)
-	}
-
-	return string(jsonData), nil
+	return response, nil
 }

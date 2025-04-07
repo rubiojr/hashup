@@ -36,7 +36,7 @@ func Serve(ctx context.Context, cfgPath string, addr string) error {
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 	r.Get("/search", searchHandler(dbPath))
-	r.Get("/stats/files", fileStats(dbPath))
+	r.Get("/stats/files", fileStatsHandler(dbPath))
 
 	go func() {
 		if err := http.ListenAndServe(addr, r); err != nil {
@@ -184,7 +184,7 @@ func searchHandler(dbPath string) http.HandlerFunc {
 	})
 }
 
-func fileStats(dbPath string) http.HandlerFunc {
+func fileStatsHandler(dbPath string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		db, err := sql.Open("sqlite3", dbPath)
 		if err != nil {
@@ -210,7 +210,18 @@ func fileStats(dbPath string) http.HandlerFunc {
 			hosts = append(hosts, host)
 		}
 
-		stats, err := extStats(db, order, desc, host)
+		limit := r.URL.Query().Get("limit")
+		if limit == "" {
+			limit = "10"
+		}
+
+		limitInt, err := strconv.Atoi(limit)
+		if err != nil {
+			statusJSON(http.StatusBadRequest, errors.New("invalid limit parameter"), w, r)
+			return
+		}
+
+		stats, err := fileStats(db, order, desc, host, limitInt)
 		if err != nil {
 			statusJSON(http.StatusInternalServerError, err, w, r)
 			return
