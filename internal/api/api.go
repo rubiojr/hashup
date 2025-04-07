@@ -198,10 +198,10 @@ func fileStatsHandler(dbPath string) http.HandlerFunc {
 			order = "file_size"
 		}
 
-		desc := false
-		direction := r.URL.Query().Get("desc")
+		desc := true
+		direction := r.URL.Query().Get("asc")
 		if direction != "" {
-			desc = true
+			desc = false
 		}
 
 		host := r.URL.Query().Get("host")
