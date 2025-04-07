@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -19,10 +20,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rubiojr/hashup/cmd/hs/types"
 	hsdb "github.com/rubiojr/hashup/internal/db"
+	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/pkg/config"
 )
 
-func Serve(cfgPath string, addr string) error {
+func Serve(ctx context.Context, cfgPath string, addr string) error {
 	cfg, err := config.LoadConfig(cfgPath)
 	if err != nil {
 		return fmt.Errorf("Failed to load config: %v", err)
@@ -34,10 +36,17 @@ func Serve(cfgPath string, addr string) error {
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 	r.Get("/search", searchHandler(dbPath))
-	http.ListenAndServe(addr, r)
+	r.Get("/stats/files", fileStats(dbPath))
 
-	http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
-	})
+	go func() {
+		if err := http.ListenAndServe(addr, r); err != nil {
+			if err != http.ErrServerClosed {
+				log.Errorf("Failed to start server: %v", err)
+			}
+		}
+	}()
+
+	<-ctx.Done()
 
 	return nil
 }
@@ -172,5 +181,41 @@ func searchHandler(dbPath string) http.HandlerFunc {
 		}
 
 		render.JSON(w, r, results)
+	})
+}
+
+func fileStats(dbPath string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		db, err := sql.Open("sqlite3", dbPath)
+		if err != nil {
+			statusJSON(http.StatusInternalServerError, err, w, r)
+			return
+		}
+		defer db.Close()
+
+		order := r.URL.Query().Get("order_by")
+		if order == "" {
+			order = "file_size"
+		}
+
+		desc := false
+		direction := r.URL.Query().Get("desc")
+		if direction != "" {
+			desc = true
+		}
+
+		host := r.URL.Query().Get("host")
+		hosts := []string{}
+		if host != "" {
+			hosts = append(hosts, host)
+		}
+
+		stats, err := extStats(db, order, desc, host)
+		if err != nil {
+			statusJSON(http.StatusInternalServerError, err, w, r)
+			return
+		}
+
+		render.JSON(w, r, stats)
 	})
 }

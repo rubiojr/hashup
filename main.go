@@ -10,6 +10,7 @@ import (
 
 	"filippo.io/age"
 	"github.com/rubiojr/hashup/internal/api"
+	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/pkg/config"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
@@ -78,7 +79,8 @@ func main() {
 						}
 						cfgPath = filepath.Join(cfgDir, "config.toml")
 					}
-					return api.Serve(cfgPath, c.String("address"))
+					log.Printf("Starting API server: %s", c.String("address"))
+					return api.Serve(c.Context, cfgPath, c.String("address"))
 				},
 			},
 			{
