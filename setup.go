@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/rubiojr/hashup/internal/config"
+	"github.com/rubiojr/hashup/pkg/config"
 )
 
 func setupConfig(force bool) error {

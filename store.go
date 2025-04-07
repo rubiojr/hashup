@@ -7,16 +7,16 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/rubiojr/hashup/internal/config"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/store"
+	"github.com/rubiojr/hashup/internal/util"
 	"github.com/urfave/cli/v2"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func runStore(clictx *cli.Context) error {
-	cfg, err := config.LoadConfigFromCLI(clictx)
+	cfg, err := util.LoadConfigFromCLI(clictx)
 	if err != nil {
 		return err
 	}

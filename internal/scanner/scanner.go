@@ -9,12 +9,12 @@ import (
 	"slices"
 
 	"github.com/rubiojr/hashup/internal/cache"
-	"github.com/rubiojr/hashup/internal/config"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/pool"
 	"github.com/rubiojr/hashup/internal/processors"
 	"github.com/rubiojr/hashup/internal/types"
 	"github.com/rubiojr/hashup/internal/util"
+	"github.com/rubiojr/hashup/pkg/config"
 )
 
 var ignoredDirectories = []string{

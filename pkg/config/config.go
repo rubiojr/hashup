@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/urfave/cli/v2"
 )
 
 // Config represents the overall application configuration
@@ -109,61 +108,6 @@ func LoadConfig(path string) (*Config, error) {
 	config.Store.DBPath = config.NormalizePath(config.Store.DBPath)
 
 	return config, nil
-}
-
-func LoadConfigFromCLI(ctx *cli.Context) (*Config, error) {
-	var cfg *Config
-	var err error
-	if ctx.String("config") != "" {
-		cfg, err = LoadConfig(ctx.String("config"))
-	} else {
-		cfg, err = LoadDefaultConfig()
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to load default config: %v", err)
-	}
-
-	encryptionKey := ctx.String("encryption-key")
-	if encryptionKey != "" {
-		cfg.Main.EncryptionKey = encryptionKey
-	}
-
-	dbPath := ctx.String("db-path")
-	if dbPath != "" {
-		cfg.Store.DBPath = dbPath
-	}
-
-	statsInterval := ctx.Int("stats-interval")
-	if statsInterval != 0 {
-		cfg.Store.StatsInterval = statsInterval
-	}
-
-	natsServer := ctx.String("nats-url")
-	if natsServer != "" {
-		cfg.Main.NatsServerURL = natsServer
-	}
-
-	streamName := ctx.String("stream")
-	if streamName != "" {
-		cfg.Main.NatsStream = streamName
-	}
-
-	clientCert := ctx.String("client-cert")
-	if clientCert != "" {
-		cfg.Main.ClientCert = cfg.NormalizePath(clientCert)
-	}
-
-	clientKey := ctx.String("client-key")
-	if clientKey != "" {
-		cfg.Main.ClientKey = cfg.NormalizePath(clientKey)
-	}
-
-	caCert := ctx.String("ca-cert")
-	if caCert != "" {
-		cfg.Main.CACert = cfg.NormalizePath(caCert)
-	}
-
-	return cfg, nil
 }
 
 // LoadDefaultConfig loads the configuration from the default path

@@ -10,7 +10,7 @@ import (
 
 	"filippo.io/age"
 	"github.com/rubiojr/hashup/internal/api"
-	"github.com/rubiojr/hashup/internal/config"
+	"github.com/rubiojr/hashup/pkg/config"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
 )

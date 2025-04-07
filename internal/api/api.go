@@ -18,8 +18,8 @@ import (
 	"github.com/go-chi/render"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rubiojr/hashup/cmd/hs/types"
-	"github.com/rubiojr/hashup/internal/config"
 	hsdb "github.com/rubiojr/hashup/internal/db"
+	"github.com/rubiojr/hashup/pkg/config"
 )
 
 func Serve(cfgPath string, addr string) error {

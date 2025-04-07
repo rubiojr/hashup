@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/rubiojr/hashup/internal/cache"
-	"github.com/rubiojr/hashup/internal/config"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/processors/nats"
 	"github.com/rubiojr/hashup/internal/scanner"
+	"github.com/rubiojr/hashup/internal/util"
 	"github.com/urfave/cli/v2"
 )
 
@@ -41,7 +41,7 @@ func runEvery(c *cli.Context) error {
 }
 
 func runScanner(clictx *cli.Context) error {
-	cfg, err := config.LoadConfigFromCLI(clictx)
+	cfg, err := util.LoadConfigFromCLI(clictx)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
