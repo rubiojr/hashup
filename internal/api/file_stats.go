@@ -27,13 +27,7 @@ type Stats struct {
 	Extensions     []*ExtensionStat `json:"extensions"`
 	TotalCount     int64            `json:"total_count"`
 	TotalSize      int64            `json:"total_size"`
-	Count          int64            `json:"count"`
-	Size           int64            `json:"size"`
 	TotalSizeHuman string           `json:"total_size_human"`
-	Limit          int              `json:"limit"`
-	OtherCount     int64            `json:"other_count,omitempty"`
-	OtherSize      int64            `json:"other_size,omitempty"`
-	OtherSizeHuman string           `json:"other_size_human,omitempty"`
 }
 
 func fileStats(db *sql.DB, orderBy string, descending bool, host string, limit int) (*Stats, error) {
@@ -141,23 +135,13 @@ func jsonStats(estats *ExtensionStats, host string, limit int) (*Stats, error) {
 
 	response := &Stats{
 		Extensions:     stats,
-		Count:          int64(count),
-		Size:           estats.TotalSize - otherSize,
 		TotalCount:     estats.TotalCount,
 		TotalSize:      estats.TotalSize,
 		TotalSizeHuman: humanize.Bytes(uint64(estats.TotalSize)),
-		Limit:          limit,
 	}
 
 	if host != "" {
 		response.Host = host
-	}
-
-	// Include "Other" category in the JSON response if there are items beyond the limit
-	if otherCount > 0 {
-		response.OtherCount = otherCount
-		response.OtherSize = otherSize
-		response.OtherSizeHuman = humanize.Bytes(uint64(otherSize))
 	}
 
 	return response, nil
