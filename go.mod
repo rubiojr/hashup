@@ -3,7 +3,7 @@ module github.com/rubiojr/hashup
 go 1.25.0
 
 require (
-	filippo.io/age v1.2.1
+	filippo.io/age v1.3.1
 	github.com/BurntSushi/toml v1.4.0
 	github.com/VictoriaMetrics/fastcache v1.12.2
 	github.com/a-h/templ v0.3.856
@@ -21,6 +21,7 @@ require (
 )
 
 require (
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/antithesishq/antithesis-sdk-go v0.6.0-default-no-op // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
