@@ -57,7 +57,7 @@ func listHosts(db *sql.DB) error {
 
 		// humanize sum
 		humanizedSum := humanize.Bytes(uint64(sum))
-		fmt.Printf(fmt.Sprintf("%-30s %-10d %-10s\n", host, count, humanizedSum))
+		fmt.Printf("%-30s %-10d %-10s\n", host, count, humanizedSum)
 	}
 
 	if err := rows.Err(); err != nil {
