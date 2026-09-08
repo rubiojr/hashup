@@ -1,11 +1,9 @@
 package cache
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/rubiojr/hashup/internal/log"
@@ -22,7 +20,6 @@ type FileCache struct {
 	cache     *fastcache.Cache
 	cachePath string
 	stats     CacheStats
-	ctx       context.Context
 }
 
 // CacheStats tracks cache hit/miss statistics
@@ -33,31 +30,12 @@ type CacheStats struct {
 }
 
 // NewFileCache creates a new file cache with a specified size limit in MB
-func NewFileCache(ctx context.Context, sizeMB int, cachePath string) *FileCache {
+func NewFileCache(sizeMB int, cachePath string) *FileCache {
 	log.Debugf("Creating or loading file cache with size %dMB at %s", sizeMB, cachePath)
 	fc := &FileCache{
 		cache:     fastcache.LoadFromFileOrNew(cachePath, sizeMB*1024*1024), // Convert MB to bytes
 		cachePath: cachePath,
-		ctx:       ctx,
 	}
-
-	go func() {
-		// save the cache every 30 seconds
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				log.Debug("saving cache")
-				fc.cache.SaveToFile(fc.cachePath)
-			case <-fc.ctx.Done():
-				log.Debug("saving cache")
-				fc.cache.SaveToFile(fc.cachePath)
-				return
-			}
-		}
-	}()
 
 	return fc
 }

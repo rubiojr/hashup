@@ -14,7 +14,6 @@ import (
 	"github.com/rubiojr/hashup/internal/processors"
 	"github.com/rubiojr/hashup/internal/types"
 	"github.com/rubiojr/hashup/internal/util"
-	"github.com/rubiojr/hashup/pkg/config"
 )
 
 var ignoredDirectories = []string{
@@ -118,8 +117,7 @@ func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 		rootDir:      rootDir,
 		ignoreHidden: true,
 		concurrency:  5,
-		// TODO: context propagagion
-		cache: cache.NewFileCache(context.Background(), 100, config.DefaultCachePath()),
+		cache:        &cache.NoopCache{},
 	}
 
 	// apply options

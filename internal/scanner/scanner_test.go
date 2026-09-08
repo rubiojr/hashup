@@ -322,3 +322,8 @@ func TestScanDirectoryDoesNotRequireProgressReader(t *testing.T) {
 		t.Fatal("scanner blocked without a progress reader")
 	}
 }
+
+func TestDirectoryScannerDefaultsToNoopCache(t *testing.T) {
+	scanner := NewDirectoryScanner(t.TempDir())
+	assert.IsType(t, &cache.NoopCache{}, scanner.cache)
+}

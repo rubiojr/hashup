@@ -114,7 +114,7 @@ func runScanner(clictx *cli.Context) error {
 	scannerOpts := []scanner.Option{
 		scanner.WithIgnoreList(ignoreList),
 		scanner.WithIgnoreHidden(clictx.Bool("ignore-hidden")),
-		scanner.WithCache(cache.NewFileCache(context.Background(), 100, cfg.Scanner.CachePath)),
+		scanner.WithCache(cache.NewFileCache(100, cfg.Scanner.CachePath)),
 		scanner.WithCacheNamespace(cacheNamespace),
 		scanner.WithForce(clictx.Bool("force")),
 		scanner.WithScanningConcurrency(concurrency),
