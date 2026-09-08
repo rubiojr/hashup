@@ -14,7 +14,6 @@ import (
 	"github.com/rubiojr/hashup/internal/pool"
 	"github.com/rubiojr/hashup/internal/processors"
 	"github.com/rubiojr/hashup/internal/types"
-	"github.com/rubiojr/hashup/internal/util"
 )
 
 var ignoredDirectories = []string{
@@ -232,17 +231,16 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			// Calculate file hash
-			fileHash, err := util.ComputeFileHash(absPath)
+			snapshot, err := captureFileSnapshot(absPath)
 			if err != nil {
-				return fmt.Errorf("error computing xxhash for %q: %v", path, err)
+				return err
 			}
 
 			cachePath := absPath
 			if s.cacheNamespace != "" {
 				cachePath = s.cacheNamespace + "\x00" + absPath
 			}
-			if !s.force && s.cache.IsFileProcessed(cachePath, fileHash) {
+			if !s.force && s.cache.IsFileProcessed(cachePath, snapshot.hash) {
 				log.Debugf("File %s already processed", path)
 				return nil
 			}
@@ -260,9 +258,9 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 			// Create the message
 			msg := types.ScannedFile{
 				Path:      absPath,
-				Size:      info.Size(),
-				ModTime:   info.ModTime(),
-				Hash:      fileHash,
+				Size:      snapshot.info.Size(),
+				ModTime:   snapshot.info.ModTime(),
+				Hash:      snapshot.hash,
 				Extension: ext,
 				Hostname:  hostname,
 			}
@@ -272,7 +270,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 				return fmt.Errorf("failed processing %q: %w", absPath, err)
 			}
 			log.Debugf("Marking file %s processed\n", absPath)
-			s.cache.MarkFileProcessed(cachePath, fileHash)
+			s.cache.MarkFileProcessed(cachePath, snapshot.hash)
 			return nil
 		}
 		s.pool.Submit(f)

@@ -19,11 +19,15 @@ func ComputeFileHash(filePath string) (string, error) {
 	}
 	defer f.Close()
 
+	return ComputeReaderHash(f)
+}
+
+// ComputeReaderHash streams a reader through an xxhash hasher.
+func ComputeReaderHash(reader io.Reader) (string, error) {
 	hasher := xxhash.New()
-	if _, err := io.Copy(hasher, f); err != nil {
+	if _, err := io.Copy(hasher, reader); err != nil {
 		return "", err
 	}
-	// Convert the 64-bit hash to hexadecimal.
 	return fmt.Sprintf("%016x", hasher.Sum64()), nil
 }
 

@@ -351,3 +351,40 @@ func TestScanDirectoryCountIncludesOnlyEligibleFiles(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), count)
 }
+
+func TestScanDirectoryRejectsQueuedFileReplacedBySymlink(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "a-first.txt")
+	second := filepath.Join(dir, "b-second.txt")
+	target := filepath.Join(t.TempDir(), "target.txt")
+	require.NoError(t, os.WriteFile(first, []byte("first"), 0600))
+	require.NoError(t, os.WriteFile(second, []byte("second"), 0600))
+	require.NoError(t, os.WriteFile(target, []byte("target"), 0600))
+
+	processor := &blockingProcessor{
+		started: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(processor.release) }) }
+	t.Cleanup(release)
+	scanner := NewDirectoryScanner(dir, WithScanningConcurrency(1))
+	done := make(chan error, 1)
+	go func() {
+		_, err := scanner.ScanDirectory(context.Background(), processor)
+		done <- err
+	}()
+
+	select {
+	case <-processor.started:
+	case <-time.After(time.Second):
+		t.Fatal("first file did not start processing")
+	}
+	require.Eventually(t, func() bool { return len(scanner.pool.Tasks) == 1 }, time.Second, time.Millisecond)
+	require.NoError(t, os.Remove(second))
+	require.NoError(t, os.Symlink(target, second))
+	release()
+
+	assert.ErrorContains(t, <-done, "symlink")
+	assert.Equal(t, int32(1), processor.maximum.Load())
+}
