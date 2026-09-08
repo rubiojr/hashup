@@ -301,3 +301,24 @@ func (p *blockingProcessor) Process(string, types.ScannedFile) error {
 	p.current.Add(-1)
 	return nil
 }
+
+func TestScanDirectoryDoesNotRequireProgressReader(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file.txt"), []byte("content"), 0600))
+	scanner := NewDirectoryScanner(dir, WithCache(&cache.NoopCache{}))
+	progress := scanner.CounterChan()
+	done := make(chan error, 1)
+	go func() {
+		_, err := scanner.ScanDirectory(context.Background(), &recordingProcessor{})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		// Release the blocked sender so the test process can shut down cleanly.
+		<-progress
+		t.Fatal("scanner blocked without a progress reader")
+	}
+}

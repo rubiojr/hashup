@@ -3,10 +3,10 @@ package nats
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/rubiojr/hashup/internal/cache"
 	"github.com/rubiojr/hashup/internal/crypto"
 	"github.com/rubiojr/hashup/internal/errmsg"
 	"github.com/rubiojr/hashup/internal/log"
@@ -21,18 +21,19 @@ type Stats struct {
 }
 
 type natsProcessor struct {
+	ctx         context.Context
 	nc          *nats.Conn
 	js          nats.JetStreamContext
 	subjectName string
 	timeout     time.Duration
 	encryptKey  []byte // AES encryption key (only used if encrypt is true)
 	encrypt     bool   // field to control encryption behavior
-	cache       *cache.FileCache
 	statsChan   chan Stats
 	crypto      crypto.Machine
 	clientCert  string
 	clientKey   string
 	caCert      string
+	closeOnce   sync.Once
 }
 
 // Options for configuring the NATS processor
@@ -72,6 +73,7 @@ func WithCACert(cert string) Option {
 func NewNATSProcessor(ctx context.Context, url, streamName, subject string, timeout time.Duration, opts ...Option) (*natsProcessor, error) {
 	// Create processor with default settings
 	processor := &natsProcessor{
+		ctx:         ctx,
 		subjectName: subject,
 		timeout:     timeout,
 		encrypt:     true,
@@ -82,6 +84,9 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 	}
 
 	nopts := []nats.Option{}
+	if timeout > 0 {
+		nopts = append(nopts, nats.Timeout(timeout))
+	}
 	if processor.clientCert != "" {
 		log.Debug("enabling Mutual TLS")
 		log.Debugf("Client certificate: %s", processor.clientCert)
@@ -115,11 +120,13 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 
 	// If encryption is enabled but no key was provided, generate a random one
 	if processor.encryptKey == nil {
+		nc.Close()
 		return nil, fmt.Errorf("encryption enabled but no key provided")
 	}
 
 	processor.crypto, err = crypto.NewAge(string(processor.encryptKey))
 	if err != nil {
+		nc.Close()
 		return nil, err
 	}
 
@@ -131,7 +138,10 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
 	stats := Stats{SkippedFiles: 1}
 	defer func() {
 		if np.statsChan != nil {
-			np.statsChan <- stats
+			select {
+			case np.statsChan <- stats:
+			case <-np.ctx.Done():
+			}
 		}
 	}()
 
@@ -160,11 +170,17 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
 	}
 
 	// Publish the data with headers
+	publishCtx := np.ctx
+	if np.timeout > 0 {
+		var cancel context.CancelFunc
+		publishCtx, cancel = context.WithTimeout(np.ctx, np.timeout)
+		defer cancel()
+	}
 	_, err = np.js.PublishMsg(&nats.Msg{
 		Subject: np.subjectName,
 		Data:    publishData,
 		Header:  headers,
-	})
+	}, nats.Context(publishCtx))
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %w", errmsg.ErrPublishFailed)
 	}
@@ -177,9 +193,11 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
 
 // Close closes the NATS connection
 func (np *natsProcessor) Close() {
-	defer np.nc.Drain()
-	if np.nc != nil && !np.nc.IsClosed() {
-		np.nc.Close()
-	}
-	close(np.statsChan)
+	np.closeOnce.Do(func() {
+		if np.nc != nil && !np.nc.IsClosed() {
+			if err := np.nc.Drain(); err != nil {
+				np.nc.Close()
+			}
+		}
+	})
 }

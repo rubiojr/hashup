@@ -141,7 +141,7 @@ func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 
 func (s *DirectoryScanner) CounterChan() chan int64 {
 	if s.pCount == nil {
-		s.pCount = make(chan int64)
+		s.pCount = make(chan int64, 1)
 	}
 	return s.pCount
 }
@@ -150,7 +150,10 @@ func (s *DirectoryScanner) incCounter() {
 	if s.pCount == nil {
 		return
 	}
-	s.pCount <- 1
+	select {
+	case s.pCount <- 1:
+	default:
+	}
 }
 
 func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processors.Processor) (int64, error) {
@@ -234,6 +237,9 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		}
 
 		f := func() error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			// Calculate file hash
 			fileHash, err := util.ComputeFileHash(absPath)
 			if err != nil {

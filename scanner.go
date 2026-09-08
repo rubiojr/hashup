@@ -185,33 +185,17 @@ func runScanner(clictx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create NATS processor: %v", err)
 	}
-	defer processor.Close()
 
-	done := make(chan bool)
-	go func() {
-		startTime := time.Now()
-		fmt.Printf("Starting directory scan in %s...\n", rootDir)
-
-		count, err := scanner.ScanDirectory(ctx, processor)
-		if err != nil {
-			log.Errorf("error scanning directory: %v", err)
-		}
-		elapsed := time.Since(startTime)
-		fmt.Printf("Completed scanning %d files in %q in %v\r\n", count, rootDir, elapsed)
-		done <- true
-	}()
-
-Loop:
-	for {
-		select {
-		case <-done:
-			log.Printf("Shutting down...")
-			break Loop
-		case <-ctx.Done():
-			log.Printf("Context canceled")
-			break Loop
-		}
+	startTime := time.Now()
+	fmt.Printf("Starting directory scan in %s...\n", rootDir)
+	count, scanErr := scanner.ScanDirectory(ctx, processor)
+	processor.Close()
+	cancel()
+	if scanErr != nil {
+		log.Errorf("error scanning directory: %v", scanErr)
 	}
+	elapsed := time.Since(startTime)
+	fmt.Printf("Completed scanning %d files in %q in %v\r\n", count, rootDir, elapsed)
 	fmt.Printf(
 		"Processed %d files, skipped %d files, queued %d files\n",
 		processedFiles,
@@ -219,7 +203,7 @@ Loop:
 		queuedFiles,
 	)
 
-	return nil
+	return scanErr
 }
 
 func scannerConcurrency(c *cli.Context, cfg *config.Config) (int, error) {
