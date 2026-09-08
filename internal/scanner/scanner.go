@@ -53,12 +53,14 @@ var ignoredDirectories = []string{
 var ignoredFiles = []string{".DS_Store", "Thumbs.db", ".localized"}
 
 type DirectoryScanner struct {
-	rootDir      string
-	ignoreList   []string
-	ignoreHidden bool
-	pool         *pool.Pool
-	pCount       chan int64
-	cache        cache.Cache
+	rootDir        string
+	ignoreList     []string
+	ignoreHidden   bool
+	force          bool
+	cacheNamespace string
+	pool           *pool.Pool
+	pCount         chan int64
+	cache          cache.Cache
 }
 
 // Options for configuring the NATS processor
@@ -87,6 +89,18 @@ func WithIgnoreHidden(ignoreHidden bool) Option {
 func WithCache(cache cache.Cache) Option {
 	return func(s *DirectoryScanner) {
 		s.cache = cache
+	}
+}
+
+func WithCacheNamespace(namespace string) Option {
+	return func(s *DirectoryScanner) {
+		s.cacheNamespace = namespace
+	}
+}
+
+func WithForce(force bool) Option {
+	return func(s *DirectoryScanner) {
+		s.force = force
 	}
 }
 
@@ -212,7 +226,11 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 				return fmt.Errorf("error computing xxhash for %q: %v", path, err)
 			}
 
-			if s.cache.IsFileProcessed(absPath, fileHash) {
+			cachePath := absPath
+			if s.cacheNamespace != "" {
+				cachePath = s.cacheNamespace + "\x00" + absPath
+			}
+			if !s.force && s.cache.IsFileProcessed(cachePath, fileHash) {
 				log.Debugf("File %s already processed", path)
 				return nil
 			}
@@ -242,7 +260,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 				return fmt.Errorf("failed processing %q: %w", absPath, err)
 			}
 			log.Debugf("Marking file %s processed\n", absPath)
-			s.cache.MarkFileProcessed(absPath, fileHash)
+			s.cache.MarkFileProcessed(cachePath, fileHash)
 			return nil
 		}
 		s.pool.Submit(f)

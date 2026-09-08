@@ -149,3 +149,29 @@ func TestScanDirectoryRetriesFailedProcessing(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, cached.calls, "successfully processed files should remain cached")
 }
+
+func TestScanDirectoryCacheNamespaceAndForce(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file.txt"), []byte("content"), 0600))
+	fileCache := &testCache{processed: make(map[string]bool)}
+
+	first := &recordingProcessor{}
+	_, err := NewDirectoryScanner(dir, WithCache(fileCache), WithCacheNamespace("destination-a")).ScanDirectory(context.Background(), first)
+	require.NoError(t, err)
+	require.Equal(t, 1, first.calls)
+
+	sameDestination := &recordingProcessor{}
+	_, err = NewDirectoryScanner(dir, WithCache(fileCache), WithCacheNamespace("destination-a")).ScanDirectory(context.Background(), sameDestination)
+	require.NoError(t, err)
+	assert.Zero(t, sameDestination.calls)
+
+	newDestination := &recordingProcessor{}
+	_, err = NewDirectoryScanner(dir, WithCache(fileCache), WithCacheNamespace("destination-b")).ScanDirectory(context.Background(), newDestination)
+	require.NoError(t, err)
+	assert.Equal(t, 1, newDestination.calls)
+
+	forced := &recordingProcessor{}
+	_, err = NewDirectoryScanner(dir, WithCache(fileCache), WithCacheNamespace("destination-b"), WithForce(true)).ScanDirectory(context.Background(), forced)
+	require.NoError(t, err)
+	assert.Equal(t, 1, forced.calls)
+}

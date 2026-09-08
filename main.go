@@ -111,6 +111,10 @@ func main() {
 						Value: true,
 						Usage: "Do not scann hidden files and directories",
 					},
+					&cli.BoolFlag{
+						Name:  "force",
+						Usage: "Process unchanged files instead of using the scanner cache",
+					},
 					&cli.IntFlag{
 						Name:  "concurrency",
 						Usage: "Number of concurrent workers",

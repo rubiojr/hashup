@@ -25,6 +25,9 @@ hashup nats
 ```bash
 hashup scan ~/Documents # Scan and queue the scanned files to be indexed
 
+# Requeue unchanged files when rebuilding an index
+hashup scan --force ~/Documents
+
 # This can run in parallel
 hashup store
 ```

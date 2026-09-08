@@ -3,18 +3,22 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/rubiojr/hashup/internal/cache"
+	hscrypto "github.com/rubiojr/hashup/internal/crypto"
 	"github.com/rubiojr/hashup/internal/log"
 	"github.com/rubiojr/hashup/internal/processors/nats"
 	"github.com/rubiojr/hashup/internal/scanner"
 	"github.com/rubiojr/hashup/internal/util"
+	"github.com/rubiojr/hashup/pkg/config"
 	"github.com/urfave/cli/v2"
 )
 
@@ -65,6 +69,15 @@ func runScanner(clictx *cli.Context) error {
 		log.SetOutput(io.Discard)
 	}
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+	cacheNamespace, err := scannerCacheNamespace(cfg, hostname)
+	if err != nil {
+		return fmt.Errorf("failed to identify scanner destination: %w", err)
+	}
+
 	var ignoreList []string
 	if clictx.String("ignore-file") != "" {
 		var err error
@@ -87,6 +100,8 @@ func runScanner(clictx *cli.Context) error {
 		scanner.WithIgnoreList(ignoreList),
 		scanner.WithIgnoreHidden(clictx.Bool("ignore-hidden")),
 		scanner.WithCache(cache.NewFileCache(context.Background(), 100, cfg.Scanner.CachePath)),
+		scanner.WithCacheNamespace(cacheNamespace),
+		scanner.WithForce(clictx.Bool("force")),
 	}
 	scanner := scanner.NewDirectoryScanner(rootDir, scannerOpts...)
 
@@ -189,6 +204,35 @@ Loop:
 	)
 
 	return nil
+}
+
+func scannerCacheNamespace(cfg *config.Config, hostname string) (string, error) {
+	recipient, err := hscrypto.DerivePublicKey(cfg.Main.EncryptionKey)
+	if err != nil {
+		return "", err
+	}
+
+	serverURLs := strings.Split(cfg.Main.NatsServerURL, ",")
+	for i, rawURL := range serverURLs {
+		serverURL, err := url.Parse(strings.TrimSpace(rawURL))
+		if err != nil {
+			return "", fmt.Errorf("parse NATS URL: %w", err)
+		}
+		if serverURL.User != nil {
+			serverURL.User = url.User(serverURL.User.Username())
+		}
+		serverURLs[i] = serverURL.String()
+	}
+
+	identity := strings.Join([]string{
+		"hashup-scanner-v1",
+		strings.Join(serverURLs, ","),
+		cfg.Main.NatsStream,
+		cfg.Main.NatsSubject,
+		recipient,
+		hostname,
+	}, "\x00")
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(identity))), nil
 }
 
 func readIgnoreList(filename string) ([]string, error) {
