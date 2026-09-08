@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -331,6 +332,54 @@ func TestScanDirectoryDoesNotRequireProgressReader(t *testing.T) {
 		<-progress
 		t.Fatal("scanner blocked without a progress reader")
 	}
+}
+
+func TestScanDirectoryReportsLatestProgressWithoutReader(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"one.txt", "two.txt", "three.txt"} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(name), 0600))
+	}
+	scanner := NewDirectoryScanner(dir)
+	progress := scanner.CounterChan()
+
+	_, err := scanner.ScanDirectory(context.Background(), &recordingProcessor{})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), <-progress)
+}
+
+func TestScanDirectoryReportsCancellationOnce(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"one.txt", "two.txt", "three.txt", "four.txt"} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(name), 0600))
+	}
+	processor := &blockingProcessor{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(processor.release) }) }
+	t.Cleanup(release)
+	ctx, cancel := context.WithCancel(context.Background())
+	scanner := NewDirectoryScanner(dir, WithScanningConcurrency(1))
+	done := make(chan error, 1)
+	go func() {
+		_, err := scanner.ScanDirectory(ctx, processor)
+		done <- err
+	}()
+
+	select {
+	case <-processor.started:
+	case <-time.After(time.Second):
+		t.Fatal("first file did not start processing")
+	}
+	require.Eventually(t, func() bool { return len(scanner.pool.Tasks) == 3 }, time.Second, time.Millisecond)
+	cancel()
+	release()
+	err := <-done
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, strings.Count(err.Error(), context.Canceled.Error()))
 }
 
 func TestDirectoryScannerDefaultsToNoopCache(t *testing.T) {

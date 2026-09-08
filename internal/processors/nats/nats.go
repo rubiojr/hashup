@@ -186,6 +186,9 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) (err error)
 		Header:  headers,
 	}, nats.Context(publishCtx))
 	if err != nil {
+		if publishCtx.Err() != nil {
+			return publishCtx.Err()
+		}
 		return fmt.Errorf("failed to publish message: %w: %w", errmsg.ErrPublishFailed, err)
 	}
 

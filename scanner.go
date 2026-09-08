@@ -157,6 +157,14 @@ func runScanner(clictx *cli.Context) error {
 			queuedFiles += int64(stats.QueuedFiles)
 		}
 	}()
+	progressChan := scanner.CounterChan()
+	progressDone := make(chan struct{})
+	go func() {
+		defer close(progressDone)
+		for count := range progressChan {
+			fmt.Printf("Scanned %d files\r", count)
+		}
+	}()
 
 	startTime := time.Now()
 	fmt.Printf("Starting directory scan in %s...\n", rootDir)
@@ -164,13 +172,14 @@ func runScanner(clictx *cli.Context) error {
 	processor.Close()
 	close(statsChan)
 	statsReaders.Wait()
+	<-progressDone
 	cancel()
 	if scanErr != nil {
 		log.Errorf("error scanning directory: %v", scanErr)
 	}
 	elapsed := time.Since(startTime)
 	cacheStats := fileCache.GetStats()
-	fmt.Printf("Completed scanning %d files in %q in %v\r\n", count, rootDir, elapsed)
+	fmt.Printf("\rCompleted scanning %d files in %q in %v\r\n", count, rootDir, elapsed)
 	fmt.Printf(
 		"Cache hits %d, attempted %d files, failed %d files, queued %d files\n",
 		cacheStats.Hits,

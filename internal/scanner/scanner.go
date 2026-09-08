@@ -143,17 +143,25 @@ func (s *DirectoryScanner) CounterChan() chan int64 {
 	return s.pCount
 }
 
-func (s *DirectoryScanner) incCounter() {
+func (s *DirectoryScanner) reportProgress(count int64) {
 	if s.pCount == nil {
 		return
 	}
 	select {
-	case s.pCount <- 1:
+	case s.pCount <- count:
 	default:
+		select {
+		case <-s.pCount:
+		default:
+		}
+		s.pCount <- count
 	}
 }
 
 func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processors.Processor) (int64, error) {
+	if s.pCount != nil {
+		defer close(s.pCount)
+	}
 	if s.configErr != nil {
 		return 0, s.configErr
 	}
@@ -225,7 +233,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		}
 
 		count++
-		s.incCounter()
+		s.reportProgress(count)
 
 		f := func() error {
 			if err := ctx.Err(); err != nil {
@@ -285,7 +293,11 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 	if cacheErr != nil {
 		cacheErr = fmt.Errorf("save scanner cache: %w", cacheErr)
 	}
-	return count, errors.Join(walkErr, processErr, cacheErr)
+	contextErr := ctx.Err()
+	if contextErr != nil && errors.Is(walkErr, contextErr) {
+		contextErr = nil
+	}
+	return count, errors.Join(walkErr, processErr, cacheErr, contextErr)
 }
 
 func handleWalkError(rootDir, path string, info os.FileInfo, err error) error {
