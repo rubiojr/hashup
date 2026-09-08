@@ -9,8 +9,17 @@ import (
 
 func main() {
 	app := &cli.App{
-		Name:  "hs",
-		Usage: "Search for files in a Hashub database",
+		Name:     "hs",
+		Usage:    "Search for files in a HashUp database",
+		Metadata: map[string]any{},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "config",
+				Usage:   "Path to the hs configuration file",
+				EnvVars: []string{"HASHUP_HS_CONFIG"},
+			},
+		},
+		Before: configureHS,
 	}
 
 	app.Commands = append(

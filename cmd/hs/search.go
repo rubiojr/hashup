@@ -50,13 +50,14 @@ func commandSearch() *cli.Command {
 			&cli.StringFlag{
 				Name:     "server-url",
 				Usage:    "HashUp API server URL",
+				EnvVars:  []string{"HASHUP_API_URL"},
 				Required: false,
 			},
 		},
 		Action: func(c *cli.Context) error {
 			hostFilter := c.String("host")
 			extFilter := c.String("extension")
-			serverURL := c.String("server-url")
+			serverURL := configuredAPIServerURL(c)
 			limit := c.Int("limit")
 
 			filename := c.Args().Get(0)

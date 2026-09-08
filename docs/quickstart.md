@@ -37,6 +37,17 @@ Use the CLI to search for file names.
 hs search test
 ```
 
+To search a remote HashUp API by default, create `~/.config/hashup/hs.toml`:
+
+```toml
+[main]
+api_server_url = "https://hashup.example.com"
+```
+
+The `--server-url` flag and `HASHUP_API_URL` environment variable override the
+configured URL. Use `hs --config /path/to/hs.toml search test` to load another
+configuration file.
+
 6. Download and install the HashUp App
 
 Get it from https://github.com/rubiojr/hashup-app
