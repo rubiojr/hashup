@@ -40,3 +40,13 @@ func TestFileCacheStatsAreSafeUnderConcurrentWrites(t *testing.T) {
 
 	assert.Equal(t, int64(1000), fileCache.GetStats().Additions)
 }
+
+func TestFileCacheCloseReleasesEntries(t *testing.T) {
+	fileCache := NewFileCache(1, "")
+	fileCache.MarkFileProcessed("file", "hash")
+	require.True(t, fileCache.IsFileProcessed("file", "hash"))
+
+	fileCache.Close()
+
+	assert.False(t, fileCache.IsFileProcessed("file", "hash"))
+}

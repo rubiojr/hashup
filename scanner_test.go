@@ -80,6 +80,13 @@ func TestScannerCacheNamespaceTracksDestination(t *testing.T) {
 	passwordNamespace, err := scannerCacheNamespace(&passwordChanged, "laptop")
 	require.NoError(t, err)
 	assert.Equal(t, baseNamespace, passwordNamespace, "passwords must not be part of cache identity")
+
+	for _, address := range []string{"127.0.0.1:4222", "[::1]:4222"} {
+		withoutScheme := *base
+		withoutScheme.Main.NatsServerURL = address
+		_, err := scannerCacheNamespace(&withoutScheme, "laptop")
+		assert.NoError(t, err)
+	}
 }
 
 func TestRunEveryRejectsNonpositiveInterval(t *testing.T) {
@@ -112,7 +119,7 @@ func TestRunEveryScansImmediately(t *testing.T) {
 	assert.Equal(t, 1, calls)
 }
 
-func TestRunEveryReturnsScheduledScanFailure(t *testing.T) {
+func TestRunEveryRetriesAfterScheduledScanFailure(t *testing.T) {
 	ctx, cancel := periodicScanContext(t, "1ms")
 	defer cancel()
 	scanErr := errors.New("scan failed")
@@ -123,11 +130,15 @@ func TestRunEveryReturnsScheduledScanFailure(t *testing.T) {
 		if calls == 1 {
 			return nil
 		}
-		return scanErr
+		if calls == 2 {
+			return scanErr
+		}
+		cancel()
+		return nil
 	})
 
-	assert.ErrorIs(t, err, scanErr)
-	assert.Equal(t, 2, calls)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 3, calls)
 }
 
 func periodicScanContext(t *testing.T, interval string) (*cli.Context, context.CancelFunc) {

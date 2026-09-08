@@ -39,3 +39,19 @@ func TestNATSProcessorReportsFailedAttempt(t *testing.T) {
 	assert.Equal(t, uint8(1), stats.FailedFiles)
 	assert.Zero(t, stats.QueuedFiles)
 }
+
+func TestNATSProcessorReportsStatsWhenContextIsCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	statsChan := make(chan Stats, 1)
+	processor := &natsProcessor{
+		ctx:       ctx,
+		encrypt:   true,
+		crypto:    failingCrypto{},
+		statsChan: statsChan,
+	}
+
+	require.Error(t, processor.Process("file", types.ScannedFile{}))
+
+	assert.Equal(t, uint8(1), (<-statsChan).FailedFiles)
+}

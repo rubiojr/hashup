@@ -107,3 +107,8 @@ func (fc *FileCache) ResetStats() {
 	defer fc.statsMu.Unlock()
 	fc.stats = CacheStats{}
 }
+
+// Close releases memory owned by the underlying cache.
+func (fc *FileCache) Close() {
+	fc.cache.Reset()
+}

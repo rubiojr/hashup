@@ -114,7 +114,7 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 	}
 	processor.js = js
 
-	if err := natsstream.Ensure(js, streamName, subject); err != nil {
+	if err := natsstream.Ensure(js, streamName, subject, nats.Context(ctx)); err != nil {
 		nc.Close()
 		return nil, fmt.Errorf("failed to ensure stream: %w", err)
 	}
@@ -145,6 +145,10 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) (err error)
 			select {
 			case np.statsChan <- stats:
 			case <-np.ctx.Done():
+				select {
+				case np.statsChan <- stats:
+				default:
+				}
 			}
 		}
 	}()
@@ -201,7 +205,20 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) (err error)
 func (np *natsProcessor) Close() {
 	np.closeOnce.Do(func() {
 		if np.nc != nil && !np.nc.IsClosed() {
+			closed := np.nc.StatusChanged(nats.CLOSED)
 			if err := np.nc.Drain(); err != nil {
+				np.nc.Close()
+				return
+			}
+			wait := np.timeout
+			if wait <= 0 {
+				wait = 5 * time.Second
+			}
+			select {
+			case <-closed:
+			case <-np.ctx.Done():
+				np.nc.Close()
+			case <-time.After(wait):
 				np.nc.Close()
 			}
 		}

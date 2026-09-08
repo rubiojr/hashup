@@ -1,14 +1,11 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"syscall"
 	"time"
 
 	"filippo.io/age"
@@ -148,10 +145,7 @@ func main() {
 					if c.Bool("debug") {
 						os.Setenv("HASHUP_DEBUG", "1")
 					}
-					if c.String("every") != "" {
-						return runEvery(c)
-					}
-					return runScanner(c)
+					return runScannerCommand(c)
 				},
 			},
 			{
@@ -295,9 +289,7 @@ func main() {
 		},
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	err := app.RunContext(ctx, os.Args)
-	stop()
+	err := app.Run(os.Args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

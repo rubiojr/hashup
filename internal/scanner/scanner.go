@@ -178,6 +178,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 	}
 
 	var count int64
+	var pathErrors []error
 
 	walkErr := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		// Check if the context has been cancelled
@@ -186,7 +187,9 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		}
 
 		if err != nil {
-			return handleWalkError(rootDir, path, info, err)
+			directive, pathErr := handleWalkError(rootDir, path, info, err)
+			pathErrors = append(pathErrors, pathErr)
+			return directive
 		}
 
 		if s.ignoreHidden && info.IsDir() && len(info.Name()) > 1 && info.Name()[0] == '.' {
@@ -237,10 +240,13 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 
 		f := func() error {
 			if err := ctx.Err(); err != nil {
-				return err
+				return nil
 			}
 			snapshot, err := captureFileSnapshot(absPath)
 			if err != nil {
+				if ctx.Err() != nil {
+					return nil
+				}
 				return err
 			}
 
@@ -275,6 +281,9 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 
 			log.Debugf("Processing file %s\n", absPath)
 			if err := processor.Process(absPath, msg); err != nil {
+				if ctx.Err() != nil {
+					return nil
+				}
 				return fmt.Errorf("failed processing %q: %w", absPath, err)
 			}
 			log.Debugf("Marking file %s processed\n", absPath)
@@ -297,18 +306,19 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 	if contextErr != nil && errors.Is(walkErr, contextErr) {
 		contextErr = nil
 	}
-	return count, errors.Join(walkErr, processErr, cacheErr, contextErr)
+	return count, errors.Join(walkErr, errors.Join(pathErrors...), processErr, cacheErr, contextErr)
 }
 
-func handleWalkError(rootDir, path string, info os.FileInfo, err error) error {
+func handleWalkError(rootDir, path string, info os.FileInfo, err error) (error, error) {
 	log.Errorf("Error accessing %q: %v", path, err)
+	pathErr := fmt.Errorf("access %q: %w", path, err)
 	if path == rootDir {
-		return err
+		return err, nil
 	}
 	if info != nil && info.IsDir() {
-		return filepath.SkipDir
+		return filepath.SkipDir, pathErr
 	}
-	return nil
+	return nil, pathErr
 }
 
 func (s *DirectoryScanner) ignorePath(path string, info os.FileInfo) (bool, error) {

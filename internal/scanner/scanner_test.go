@@ -437,3 +437,12 @@ func TestScanDirectoryRejectsQueuedFileReplacedBySymlink(t *testing.T) {
 	assert.ErrorContains(t, <-done, "symlink")
 	assert.Equal(t, int32(1), processor.maximum.Load())
 }
+
+func TestHandleWalkErrorReportsDescendantFailure(t *testing.T) {
+	walkErr := errors.New("permission denied")
+
+	directive, reported := handleWalkError("/root", "/root/file", nil, walkErr)
+
+	assert.NoError(t, directive)
+	assert.ErrorIs(t, reported, walkErr)
+}

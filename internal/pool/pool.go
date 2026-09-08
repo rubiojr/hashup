@@ -1,7 +1,6 @@
 package pool
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"time"
@@ -34,9 +33,6 @@ func (p *Pool) Start() {
 			defer p.WorkerGroup.Done()
 			for task := range p.Tasks {
 				if err := task.Func(); err != nil {
-					if errors.Is(err, context.Canceled) {
-						continue
-					}
 					p.errMu.Lock()
 					p.errs = append(p.errs, err)
 					p.errMu.Unlock()

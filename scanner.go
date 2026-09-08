@@ -8,9 +8,11 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/rubiojr/hashup/internal/cache"
@@ -48,12 +50,26 @@ func runEveryWith(c *cli.Context, scan func(*cli.Context) error) error {
 		case <-ticker.C:
 			err := scan(c)
 			if err != nil {
-				return fmt.Errorf("failed to run scanner: %w", err)
+				fmt.Fprintf(os.Stderr, "failed to run scanner: %v\n", err)
 			}
 		case <-c.Context.Done():
 			return c.Context.Err()
 		}
 	}
+}
+
+func runScannerCommand(c *cli.Context) error {
+	ctx, stop := signal.NotifyContext(c.Context, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	c.Context = ctx
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+	if c.String("every") != "" {
+		return runEvery(c)
+	}
+	return runScanner(c)
 }
 
 func runScanner(clictx *cli.Context) error {
@@ -104,6 +120,7 @@ func runScanner(clictx *cli.Context) error {
 	}
 
 	fileCache := cache.NewFileCache(100, cfg.Scanner.CachePath)
+	defer fileCache.Close()
 	scannerOpts := []scanner.Option{
 		scanner.WithIgnoreList(ignoreList),
 		scanner.WithIgnoreHidden(clictx.Bool("ignore-hidden")),
@@ -210,7 +227,11 @@ func scannerCacheNamespace(cfg *config.Config, hostname string) (string, error) 
 
 	serverURLs := strings.Split(cfg.Main.NatsServerURL, ",")
 	for i, rawURL := range serverURLs {
-		serverURL, err := url.Parse(strings.TrimSpace(rawURL))
+		rawURL = strings.TrimSpace(rawURL)
+		if !strings.Contains(rawURL, "://") {
+			rawURL = "nats://" + rawURL
+		}
+		serverURL, err := url.Parse(rawURL)
 		if err != nil {
 			return "", fmt.Errorf("parse NATS URL: %w", err)
 		}
@@ -221,7 +242,7 @@ func scannerCacheNamespace(cfg *config.Config, hostname string) (string, error) 
 	}
 
 	identity := strings.Join([]string{
-		"hashup-scanner-v1",
+		"hashup-scanner-v2",
 		strings.Join(serverURLs, ","),
 		cfg.Main.NatsStream,
 		cfg.Main.NatsSubject,

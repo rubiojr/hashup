@@ -30,8 +30,8 @@ func Config(name, subject string) *nats.StreamConfig {
 }
 
 // Ensure creates the stream when absent and validates streams managed externally.
-func Ensure(js manager, name, subject string) error {
-	info, err := js.StreamInfo(name)
+func Ensure(js manager, name, subject string, opts ...nats.JSOpt) error {
+	info, err := js.StreamInfo(name, opts...)
 	if err == nil {
 		return validate(info, subject)
 	}
@@ -39,10 +39,10 @@ func Ensure(js manager, name, subject string) error {
 		return fmt.Errorf("get stream %q: %w", name, err)
 	}
 
-	info, err = js.AddStream(Config(name, subject))
+	info, err = js.AddStream(Config(name, subject), opts...)
 	if err != nil {
 		// Another process may have created the stream between lookup and creation.
-		info, lookupErr := js.StreamInfo(name)
+		info, lookupErr := js.StreamInfo(name, opts...)
 		if lookupErr != nil {
 			return fmt.Errorf("create stream %q: %w", name, err)
 		}
