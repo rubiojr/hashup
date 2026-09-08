@@ -1,3 +1,5 @@
 /hs
 /hashup
 /.octmp
+.kata.local.toml
+.kata.toml
