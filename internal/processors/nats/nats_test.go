@@ -66,3 +66,14 @@ func TestNewNATSProcessorRejectsCanceledContextBeforeConnecting(t *testing.T) {
 
 	assert.ErrorIs(t, err, context.Canceled)
 }
+
+func TestContextualPublishErrorPreservesFailureRacingCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	publishErr := errors.New("server rejected publish")
+
+	err := contextualPublishError(publishErr, ctx)
+
+	assert.ErrorIs(t, err, publishErr)
+	assert.ErrorIs(t, err, context.Canceled)
+}

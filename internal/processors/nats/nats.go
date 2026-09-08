@@ -2,6 +2,7 @@ package nats
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -123,7 +124,7 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 	log.Debugf("NATS URL: %s", url)
 	nc, err := nats.Connect(url, nopts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to NATS: %v", err)
+		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 	processor.nc = nc
 
@@ -131,7 +132,7 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 	js, err := nc.JetStream()
 	if err != nil {
 		nc.Close()
-		return nil, fmt.Errorf("failed to get JetStream context: %v", err)
+		return nil, fmt.Errorf("failed to get JetStream context: %w", err)
 	}
 	processor.js = js
 
@@ -213,16 +214,25 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) (err error)
 		Header:  headers,
 	}, nats.Context(publishCtx))
 	if err != nil {
-		if publishCtx.Err() != nil {
-			return publishCtx.Err()
-		}
-		return fmt.Errorf("failed to publish message: %w: %w", errmsg.ErrPublishFailed, err)
+		return contextualPublishError(err, publishCtx)
 	}
 
 	stats.QueuedFiles++
 	np.queued.Add(1)
 
 	return nil
+}
+
+func contextualPublishError(err error, ctx context.Context) error {
+	publishErr := fmt.Errorf("failed to publish message: %w: %w", errmsg.ErrPublishFailed, err)
+	contextErr := ctx.Err()
+	if contextErr == nil {
+		return publishErr
+	}
+	if errors.Is(err, contextErr) {
+		return contextErr
+	}
+	return errors.Join(publishErr, contextErr)
 }
 
 // Close closes the NATS connection

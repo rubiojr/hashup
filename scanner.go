@@ -178,7 +178,7 @@ func runScanner(clictx *cli.Context) error {
 		processorOpts...,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create NATS processor: %v", err)
+		return fmt.Errorf("failed to create NATS processor: %w", err)
 	}
 
 	progressChan := scanner.CounterChan()
