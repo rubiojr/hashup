@@ -296,8 +296,10 @@ func main() {
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	if err := app.RunContext(ctx, os.Args); err != nil {
+	err := app.RunContext(ctx, os.Args)
+	stop()
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
 	}
 }

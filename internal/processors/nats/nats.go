@@ -182,7 +182,7 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
 		Header:  headers,
 	}, nats.Context(publishCtx))
 	if err != nil {
-		return fmt.Errorf("failed to publish message: %w", errmsg.ErrPublishFailed)
+		return fmt.Errorf("failed to publish message: %w: %w", errmsg.ErrPublishFailed, err)
 	}
 
 	stats.QueuedFiles++

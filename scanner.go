@@ -47,7 +47,7 @@ func runEveryWith(c *cli.Context, scan func(*cli.Context) error) error {
 		case <-ticker.C:
 			err := scan(c)
 			if err != nil {
-				log.Errorf("failed to run scanner: %v", err)
+				return fmt.Errorf("failed to run scanner: %w", err)
 			}
 		case <-c.Context.Done():
 			return c.Context.Err()

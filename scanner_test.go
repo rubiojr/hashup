@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/rubiojr/hashup/internal/crypto"
@@ -11,6 +15,25 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 )
+
+func TestMainExitsNonzeroOnCommandError(t *testing.T) {
+	if os.Getenv("HASHUP_TEST_MAIN_ERROR") == "1" {
+		os.Args = []string{"hashup", "scan", "--config", os.Getenv("HASHUP_TEST_MISSING_CONFIG")}
+		main()
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestMainExitsNonzeroOnCommandError")
+	cmd.Env = append(os.Environ(),
+		"HASHUP_TEST_MAIN_ERROR=1",
+		"HASHUP_TEST_MISSING_CONFIG="+filepath.Join(t.TempDir(), "missing.toml"),
+	)
+	err := cmd.Run()
+
+	var exitErr *exec.ExitError
+	require.ErrorAs(t, err, &exitErr)
+	assert.NotZero(t, exitErr.ExitCode())
+}
 
 func TestScannerCacheNamespaceTracksDestination(t *testing.T) {
 	_, privateKey, err := crypto.GenerateAgeKeyPair()
@@ -87,6 +110,24 @@ func TestRunEveryScansImmediately(t *testing.T) {
 
 	assert.ErrorIs(t, err, context.Canceled)
 	assert.Equal(t, 1, calls)
+}
+
+func TestRunEveryReturnsScheduledScanFailure(t *testing.T) {
+	ctx, cancel := periodicScanContext(t, "1ms")
+	defer cancel()
+	scanErr := errors.New("scan failed")
+	calls := 0
+
+	err := runEveryWith(ctx, func(*cli.Context) error {
+		calls++
+		if calls == 1 {
+			return nil
+		}
+		return scanErr
+	})
+
+	assert.ErrorIs(t, err, scanErr)
+	assert.Equal(t, 2, calls)
 }
 
 func periodicScanContext(t *testing.T, interval string) (*cli.Context, context.CancelFunc) {

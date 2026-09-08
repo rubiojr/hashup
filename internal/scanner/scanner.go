@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -132,7 +133,6 @@ func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 		scanner.concurrency = 1
 	}
 	scanner.pool = pool.NewPool(scanner.concurrency)
-	scanner.pool.Start()
 
 	return scanner
 }
@@ -163,13 +163,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		return 0, fmt.Errorf("resolve scan root: %w", err)
 	}
 
-	defer func() {
-		s.pool.Stop()
-		err := s.cache.Save()
-		if err != nil {
-			log.Errorf("Error saving cache: %v", err)
-		}
-	}()
+	s.pool.Start()
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -178,7 +172,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 
 	var count int64
 
-	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+	walkErr := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		// Check if the context has been cancelled
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -285,7 +279,15 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		return nil
 	})
 
-	return count, err
+	processErr := s.pool.Stop()
+	cacheErr := s.cache.Save()
+	if processErr != nil {
+		processErr = fmt.Errorf("process scanned files: %w", processErr)
+	}
+	if cacheErr != nil {
+		cacheErr = fmt.Errorf("save scanner cache: %w", cacheErr)
+	}
+	return count, errors.Join(walkErr, processErr, cacheErr)
 }
 
 func handleWalkError(rootDir, path string, info os.FileInfo, err error) error {

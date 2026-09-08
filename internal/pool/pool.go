@@ -1,14 +1,10 @@
 package pool
 
 import (
-	"context"
+	"errors"
 	"sync"
 	"time"
-
-	"github.com/rubiojr/hashup/internal/log"
 )
-
-var pool *Pool
 
 type Task struct {
 	ID   int64
@@ -19,6 +15,8 @@ type Pool struct {
 	Tasks       chan Task
 	NumWorkers  int
 	WorkerGroup sync.WaitGroup
+	errMu       sync.Mutex
+	errs        []error
 }
 
 func NewPool(numWorkers int) *Pool {
@@ -31,29 +29,23 @@ func NewPool(numWorkers int) *Pool {
 func (p *Pool) Start() {
 	for i := 0; i < p.NumWorkers; i++ {
 		p.WorkerGroup.Add(1)
-		go func(workerID int) {
+		go func() {
 			defer p.WorkerGroup.Done()
-			for {
-				select {
-				case task := <-p.Tasks:
-					if task.ID == 0 {
-						return
-					}
-					if err := task.Func(); err != nil {
-						if err == context.Canceled {
-							return
-						}
-						log.Errorf("Worker %d failed to process task %d: %v\n", workerID, task.ID, err)
-					}
+			for task := range p.Tasks {
+				if err := task.Func(); err != nil {
+					p.errMu.Lock()
+					p.errs = append(p.errs, err)
+					p.errMu.Unlock()
 				}
 			}
-		}(i)
+		}()
 	}
 }
 
-func (p *Pool) Stop() {
+func (p *Pool) Stop() error {
 	close(p.Tasks)
 	p.WorkerGroup.Wait()
+	return errors.Join(p.errs...)
 }
 
 func (p *Pool) Submit(f func() error) {

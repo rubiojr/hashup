@@ -20,6 +20,7 @@ import (
 
 type testCache struct {
 	processed map[string]bool
+	saveErr   error
 }
 
 func (c *testCache) IsFileProcessed(path, hash string) bool {
@@ -30,8 +31,8 @@ func (c *testCache) MarkFileProcessed(path, hash string) {
 	c.processed[path+hash] = true
 }
 
-func (*testCache) Save() error {
-	return nil
+func (c *testCache) Save() error {
+	return c.saveErr
 }
 
 type recordingProcessor struct {
@@ -152,7 +153,7 @@ func TestScanDirectoryRetriesFailedProcessing(t *testing.T) {
 
 	failing := &recordingProcessor{err: errors.New("processing failed")}
 	_, err := NewDirectoryScanner(dir, WithCache(fileCache)).ScanDirectory(context.Background(), failing)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "processing failed")
 	require.Equal(t, 1, failing.calls)
 
 	succeeding := &recordingProcessor{}
@@ -164,6 +165,15 @@ func TestScanDirectoryRetriesFailedProcessing(t *testing.T) {
 	_, err = NewDirectoryScanner(dir, WithCache(fileCache)).ScanDirectory(context.Background(), cached)
 	require.NoError(t, err)
 	assert.Zero(t, cached.calls, "successfully processed files should remain cached")
+}
+
+func TestScanDirectoryReturnsCacheSaveFailure(t *testing.T) {
+	cacheErr := errors.New("cache save failed")
+	fileCache := &testCache{processed: make(map[string]bool), saveErr: cacheErr}
+
+	_, err := NewDirectoryScanner(t.TempDir(), WithCache(fileCache)).ScanDirectory(context.Background(), &recordingProcessor{})
+
+	assert.ErrorIs(t, err, cacheErr)
 }
 
 func TestScanDirectoryCacheNamespaceAndForce(t *testing.T) {
