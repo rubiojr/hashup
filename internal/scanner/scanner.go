@@ -54,10 +54,11 @@ var ignoredFiles = []string{".DS_Store", "Thumbs.db", ".localized"}
 
 type DirectoryScanner struct {
 	rootDir        string
-	ignoreList     []string
+	ignorePatterns []*regexp.Regexp
 	ignoreHidden   bool
 	force          bool
 	cacheNamespace string
+	configErr      error
 	pool           *pool.Pool
 	pCount         chan int64
 	cache          cache.Cache
@@ -69,7 +70,15 @@ type Option func(*DirectoryScanner)
 // WithIgnoreList configures whether the processor should wait for acknowledgment
 func WithIgnoreList(ignoreList []string) Option {
 	return func(s *DirectoryScanner) {
-		s.ignoreList = ignoreList
+		s.ignorePatterns = nil
+		for _, pattern := range ignoreList {
+			compiled, err := regexp.Compile(pattern)
+			if err != nil {
+				s.configErr = fmt.Errorf("invalid ignore pattern %q: %w", pattern, err)
+				return
+			}
+			s.ignorePatterns = append(s.ignorePatterns, compiled)
+		}
 	}
 }
 
@@ -107,7 +116,6 @@ func WithForce(force bool) Option {
 func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 	scanner := &DirectoryScanner{
 		rootDir:      rootDir,
-		ignoreList:   []string{},
 		ignoreHidden: true,
 		pool:         pool.NewPool(5),
 		// TODO: context propagagion
@@ -139,6 +147,14 @@ func (s *DirectoryScanner) incCounter() {
 }
 
 func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processors.Processor) (int64, error) {
+	if s.configErr != nil {
+		return 0, s.configErr
+	}
+	rootDir, err := filepath.Abs(s.rootDir)
+	if err != nil {
+		return 0, fmt.Errorf("resolve scan root: %w", err)
+	}
+
 	defer func() {
 		s.pool.Stop()
 		err := s.cache.Save()
@@ -154,15 +170,14 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 
 	var count int64
 
-	err = filepath.Walk(s.rootDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		// Check if the context has been cancelled
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 
 		if err != nil {
-			log.Errorf("Error accessing %q: %v", path, err)
-			return err
+			return handleWalkError(rootDir, path, info, err)
 		}
 
 		count++
@@ -185,6 +200,10 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 			return nil
 		}
 
+		if ignored, err := s.ignorePath(absPath, info); ignored {
+			return err
+		}
+
 		// Skip ignored directories
 		if info.IsDir() && slices.Contains(ignoredDirectories, info.Name()) {
 			log.Debugf("ignoring directory %s", path)
@@ -205,18 +224,6 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 		if slices.Contains(ignoredFiles, info.Name()) {
 			log.Debugf("ignoring file %s", path)
 			return nil
-		}
-
-		// ignoreList is a list of regular expressions to ignore
-		for _, pattern := range s.ignoreList {
-			matched, _ := regexp.MatchString(pattern, absPath)
-			if matched {
-				log.Debugf("ignoring path match %s", path)
-				if info.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
 		}
 
 		f := func() error {
@@ -268,4 +275,29 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 	})
 
 	return count, err
+}
+
+func handleWalkError(rootDir, path string, info os.FileInfo, err error) error {
+	log.Errorf("Error accessing %q: %v", path, err)
+	if path == rootDir {
+		return err
+	}
+	if info != nil && info.IsDir() {
+		return filepath.SkipDir
+	}
+	return nil
+}
+
+func (s *DirectoryScanner) ignorePath(path string, info os.FileInfo) (bool, error) {
+	for _, pattern := range s.ignorePatterns {
+		if !pattern.MatchString(path) {
+			continue
+		}
+		log.Debugf("ignoring path match %s", path)
+		if info.IsDir() {
+			return true, filepath.SkipDir
+		}
+		return true, nil
+	}
+	return false, nil
 }

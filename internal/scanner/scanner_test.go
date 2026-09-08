@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,15 +34,24 @@ func (*testCache) Save() error {
 }
 
 type recordingProcessor struct {
+	mu       sync.Mutex
 	calls    int
 	err      error
 	messages []types.ScannedFile
 }
 
 func (p *recordingProcessor) Process(_ string, message types.ScannedFile) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.calls++
 	p.messages = append(p.messages, message)
 	return p.err
+}
+
+func (p *recordingProcessor) Messages() []types.ScannedFile {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]types.ScannedFile(nil), p.messages...)
 }
 
 func TestScanDirectory(t *testing.T) {
@@ -192,6 +203,36 @@ func TestScanDirectoryPublishesAbsolutePath(t *testing.T) {
 	processor := &recordingProcessor{}
 	_, err = NewDirectoryScanner(relativeDir, WithCache(&cache.NoopCache{})).ScanDirectory(context.Background(), processor)
 	require.NoError(t, err)
-	require.Len(t, processor.messages, 1)
-	assert.Equal(t, file, processor.messages[0].Path)
+	messages := processor.Messages()
+	require.Len(t, messages, 1)
+	assert.Equal(t, file, messages[0].Path)
+}
+
+func TestScanDirectoryIgnoresMatchingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	ignoredDir := filepath.Join(dir, "ignored")
+	require.NoError(t, os.Mkdir(ignoredDir, 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(ignoredDir, "ignored.txt"), []byte("ignored"), 0600))
+	keptFile := filepath.Join(dir, "kept.txt")
+	require.NoError(t, os.WriteFile(keptFile, []byte("kept"), 0600))
+
+	processor := &recordingProcessor{}
+	_, err := NewDirectoryScanner(
+		dir,
+		WithIgnoreList([]string{regexp.QuoteMeta(ignoredDir) + "$"}),
+		WithCache(&cache.NoopCache{}),
+	).ScanDirectory(context.Background(), processor)
+	require.NoError(t, err)
+
+	messages := processor.Messages()
+	require.Len(t, messages, 1)
+	assert.Equal(t, keptFile, messages[0].Path)
+}
+
+func TestScanDirectoryRejectsInvalidIgnorePattern(t *testing.T) {
+	scanner := NewDirectoryScanner(t.TempDir(), WithIgnoreList([]string{"["}), WithCache(&cache.NoopCache{}))
+
+	_, err := scanner.ScanDirectory(context.Background(), &recordingProcessor{})
+
+	assert.ErrorContains(t, err, "invalid ignore pattern")
 }
