@@ -16,30 +16,30 @@ func SetOutput(w io.Writer) {
 	logger.SetOutput(w)
 }
 
-func Printf(format string, args ...interface{}) {
+func Printf(format string, args ...any) {
 	logger.Printf(format, args...)
 }
 
-func Debugf(format string, args ...interface{}) {
+func Debugf(format string, args ...any) {
 	if os.Getenv("HASHUP_DEBUG") != "" {
 		logger.Printf(format, args...)
 	}
 }
 
-func Debug(args ...interface{}) {
+func Debug(args ...any) {
 	if os.Getenv("HASHUP_DEBUG") != "" {
 		logger.Println(args...)
 	}
 }
 
-func Fatal(args ...interface{}) {
+func Fatal(args ...any) {
 	logger.Fatal(args...)
 }
 
-func Fatalf(format string, args ...interface{}) {
+func Fatalf(format string, args ...any) {
 	logger.Fatalf(format, args...)
 }
 
-func Errorf(format string, args ...interface{}) {
+func Errorf(format string, args ...any) {
 	logger.Printf(format, args...)
 }

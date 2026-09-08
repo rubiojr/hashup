@@ -25,14 +25,14 @@ func OpenDatabase(dbPath string) (*sql.DB, error) {
 		"_cache_size=-20000",                  // Use 20MB page cache (negative value = kilobytes)
 		"_synchronous=NORMAL",                 // Ensure full synchronous mode
 	}
-	plist := ""
+	var plist strings.Builder
 	for _, pragma := range pragmas {
-		plist += fmt.Sprintf("&%s", pragma)
+		plist.WriteString(fmt.Sprintf("&%s", pragma))
 	}
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %v", err)
 	}
-	dsn := fmt.Sprintf("file:%s?mode=rwc%s", dbPath, plist)
+	dsn := fmt.Sprintf("file:%s?mode=rwc%s", dbPath, plist.String())
 
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {

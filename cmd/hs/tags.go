@@ -53,8 +53,8 @@ func listTags(db *sql.DB) error {
 		}
 
 		// Split the comma-separated tags and add them to the map
-		tags := strings.Split(tagString, ",")
-		for _, tag := range tags {
+		tags := strings.SplitSeq(tagString, ",")
+		for tag := range tags {
 			tag = strings.TrimSpace(tag)
 			if tag != "" {
 				uniqueTags[tag] = struct{}{}

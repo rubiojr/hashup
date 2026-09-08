@@ -139,12 +139,9 @@ func (stats *ProcessStats) PrintStats() {
 		}
 
 		// Print top 10 or all if less than 10
-		limit := 10
-		if len(extCounts) < limit {
-			limit = len(extCounts)
-		}
+		limit := min(len(extCounts), 10)
 
-		for i := 0; i < limit; i++ {
+		for i := range limit {
 			fmt.Printf("  %-20s %d\n", extCounts[i].ext, extCounts[i].count)
 		}
 	}
