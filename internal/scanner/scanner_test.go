@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -235,4 +236,68 @@ func TestScanDirectoryRejectsInvalidIgnorePattern(t *testing.T) {
 	_, err := scanner.ScanDirectory(context.Background(), &recordingProcessor{})
 
 	assert.ErrorContains(t, err, "invalid ignore pattern")
+}
+
+func TestScanDirectoryHonorsConcurrency(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"one.txt", "two.txt"} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(name), 0600))
+	}
+	processor := &blockingProcessor{
+		started: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(processor.release) }) }
+	t.Cleanup(release)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewDirectoryScanner(
+			dir,
+			WithScanningConcurrency(1),
+			WithCache(&cache.NoopCache{}),
+		).ScanDirectory(context.Background(), processor)
+		done <- err
+	}()
+
+	select {
+	case <-processor.started:
+	case <-time.After(time.Second):
+		t.Fatal("first file did not start processing")
+	}
+	select {
+	case <-processor.started:
+		t.Fatal("more than one file processed concurrently")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	release()
+	require.NoError(t, <-done)
+	assert.Equal(t, int32(1), processor.maximum.Load())
+}
+
+func TestScanDirectoryRejectsNonpositiveConcurrency(t *testing.T) {
+	scanner := NewDirectoryScanner(t.TempDir(), WithScanningConcurrency(0), WithCache(&cache.NoopCache{}))
+
+	_, err := scanner.ScanDirectory(context.Background(), &recordingProcessor{})
+
+	assert.ErrorContains(t, err, "concurrency must be greater than zero")
+}
+
+type blockingProcessor struct {
+	current atomic.Int32
+	maximum atomic.Int32
+	started chan struct{}
+	release chan struct{}
+}
+
+func (p *blockingProcessor) Process(string, types.ScannedFile) error {
+	current := p.current.Add(1)
+	for current > p.maximum.Load() && !p.maximum.CompareAndSwap(p.maximum.Load(), current) {
+	}
+	p.started <- struct{}{}
+	<-p.release
+	p.current.Add(-1)
+	return nil
 }

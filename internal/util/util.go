@@ -64,6 +64,11 @@ func LoadConfigFromCLI(ctx *cli.Context) (*config.Config, error) {
 		cfg.Main.NatsStream = streamName
 	}
 
+	subject := ctx.String("subject")
+	if subject != "" {
+		cfg.Main.NatsSubject = subject
+	}
+
 	clientCert := ctx.String("client-cert")
 	if clientCert != "" {
 		cfg.Main.ClientCert = cfg.NormalizePath(clientCert)

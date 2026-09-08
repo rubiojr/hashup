@@ -14,7 +14,7 @@ type Config struct {
 	Main    MainConfig    `toml:"main"`
 	Store   StoreConfig   `toml:"store"`
 	Scanner ScannerConfig `toml:"scanner"`
-	Path    string
+	Path    string        `toml:"-"`
 }
 
 // MainConfig represents the main configuration section
@@ -104,6 +104,7 @@ func LoadConfig(path string) (*Config, error) {
 	config.Main.ClientCert = config.NormalizePath(config.Main.ClientCert)
 	config.Main.CACert = config.NormalizePath(config.Main.CACert)
 	config.Store.DBPath = config.NormalizePath(config.Store.DBPath)
+	config.Scanner.CachePath = config.NormalizePath(config.Scanner.CachePath)
 
 	return config, nil
 }

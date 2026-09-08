@@ -88,6 +88,10 @@ func runScanner(clictx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to identify scanner destination: %w", err)
 	}
+	concurrency, err := scannerConcurrency(clictx, cfg)
+	if err != nil {
+		return err
+	}
 
 	var ignoreList []string
 	if clictx.String("ignore-file") != "" {
@@ -113,6 +117,7 @@ func runScanner(clictx *cli.Context) error {
 		scanner.WithCache(cache.NewFileCache(context.Background(), 100, cfg.Scanner.CachePath)),
 		scanner.WithCacheNamespace(cacheNamespace),
 		scanner.WithForce(clictx.Bool("force")),
+		scanner.WithScanningConcurrency(concurrency),
 	}
 	scanner := scanner.NewDirectoryScanner(rootDir, scannerOpts...)
 
@@ -215,6 +220,17 @@ Loop:
 	)
 
 	return nil
+}
+
+func scannerConcurrency(c *cli.Context, cfg *config.Config) (int, error) {
+	concurrency := cfg.Scanner.ScanningConcurrency
+	if c.IsSet("concurrency") {
+		concurrency = c.Int("concurrency")
+	}
+	if concurrency <= 0 {
+		return 0, fmt.Errorf("scanning concurrency must be greater than zero")
+	}
+	return concurrency, nil
 }
 
 func scannerCacheNamespace(cfg *config.Config, hostname string) (string, error) {

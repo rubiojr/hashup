@@ -58,6 +58,7 @@ func TestLoadConfig(t *testing.T) {
 	testCfg := config.DefaultConfig()
 	testCfg.Main.NatsServerURL = "nats://testserver:4222"
 	testCfg.Store.StatsInterval = 60
+	testCfg.Scanner.CachePath = "cache/files"
 
 	f, err := os.Create(configPath)
 	assert.NoError(t, err)
@@ -72,6 +73,7 @@ func TestLoadConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "nats://testserver:4222", cfg.Main.NatsServerURL)
 	assert.Equal(t, 60, cfg.Store.StatsInterval)
+	assert.Equal(t, filepath.Join(tempDir, "cache/files"), cfg.Scanner.CachePath)
 
 	// Test loading non-existent config
 	_, err = config.LoadConfig(filepath.Join(tempDir, "nonexistent.toml"))

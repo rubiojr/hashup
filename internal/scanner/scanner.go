@@ -59,6 +59,7 @@ type DirectoryScanner struct {
 	force          bool
 	cacheNamespace string
 	configErr      error
+	concurrency    int
 	pool           *pool.Pool
 	pCount         chan int64
 	cache          cache.Cache
@@ -84,8 +85,7 @@ func WithIgnoreList(ignoreList []string) Option {
 
 func WithScanningConcurrency(concurrency int) Option {
 	return func(s *DirectoryScanner) {
-		s.pool = pool.NewPool(concurrency)
-		s.pool.Start()
+		s.concurrency = concurrency
 	}
 }
 
@@ -117,7 +117,7 @@ func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 	scanner := &DirectoryScanner{
 		rootDir:      rootDir,
 		ignoreHidden: true,
-		pool:         pool.NewPool(5),
+		concurrency:  5,
 		// TODO: context propagagion
 		cache: cache.NewFileCache(context.Background(), 100, config.DefaultCachePath()),
 	}
@@ -127,6 +127,13 @@ func NewDirectoryScanner(rootDir string, options ...Option) *DirectoryScanner {
 		option(scanner)
 	}
 
+	if scanner.concurrency <= 0 {
+		if scanner.configErr == nil {
+			scanner.configErr = fmt.Errorf("scanning concurrency must be greater than zero")
+		}
+		scanner.concurrency = 1
+	}
+	scanner.pool = pool.NewPool(scanner.concurrency)
 	scanner.pool.Start()
 
 	return scanner

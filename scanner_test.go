@@ -99,3 +99,31 @@ func periodicScanContext(t *testing.T, interval string) (*cli.Context, context.C
 	cliContext.Context = ctx
 	return cliContext, cancel
 }
+
+func TestScannerConcurrencyPrecedence(t *testing.T) {
+	config := &config.Config{Scanner: config.ScannerConfig{ScanningConcurrency: 3}}
+
+	ctx := scannerCLIContext(t, "")
+	concurrency, err := scannerConcurrency(ctx, config)
+	require.NoError(t, err)
+	assert.Equal(t, 3, concurrency)
+
+	ctx = scannerCLIContext(t, "2")
+	concurrency, err = scannerConcurrency(ctx, config)
+	require.NoError(t, err)
+	assert.Equal(t, 2, concurrency)
+
+	ctx = scannerCLIContext(t, "0")
+	_, err = scannerConcurrency(ctx, config)
+	assert.ErrorContains(t, err, "concurrency must be greater than zero")
+}
+
+func scannerCLIContext(t *testing.T, concurrency string) *cli.Context {
+	t.Helper()
+	set := flag.NewFlagSet("test", flag.ContinueOnError)
+	set.Int("concurrency", 0, "")
+	if concurrency != "" {
+		require.NoError(t, set.Set("concurrency", concurrency))
+	}
+	return cli.NewContext(&cli.App{}, set, nil)
+}
