@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/rubiojr/hashup/internal/log"
@@ -19,6 +20,7 @@ type Cache interface {
 type FileCache struct {
 	cache     *fastcache.Cache
 	cachePath string
+	statsMu   sync.Mutex
 	stats     CacheStats
 }
 
@@ -55,9 +57,13 @@ func (fc *FileCache) IsFileProcessed(filePath, fileHash string) bool {
 	exists := fc.cache.Has(key)
 
 	if exists {
+		fc.statsMu.Lock()
 		fc.stats.Hits++
+		fc.statsMu.Unlock()
 	} else {
+		fc.statsMu.Lock()
 		fc.stats.Misses++
+		fc.statsMu.Unlock()
 	}
 
 	return exists
@@ -67,7 +73,9 @@ func (fc *FileCache) IsFileProcessed(filePath, fileHash string) bool {
 func (fc *FileCache) MarkFileProcessed(filePath, fileHash string) {
 	key := createCacheKey(filePath, fileHash)
 	fc.cache.Set(key, []byte{})
+	fc.statsMu.Lock()
 	fc.stats.Additions++
+	fc.statsMu.Unlock()
 }
 
 // Save persists the cache to disk
@@ -88,10 +96,14 @@ func (fc *FileCache) Save() error {
 
 // GetStats returns the current cache statistics
 func (fc *FileCache) GetStats() CacheStats {
+	fc.statsMu.Lock()
+	defer fc.statsMu.Unlock()
 	return fc.stats
 }
 
 // ResetStats resets the cache statistics
 func (fc *FileCache) ResetStats() {
+	fc.statsMu.Lock()
+	defer fc.statsMu.Unlock()
 	fc.stats = CacheStats{}
 }

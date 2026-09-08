@@ -16,8 +16,9 @@ import (
 )
 
 type Stats struct {
-	SkippedFiles uint8
-	QueuedFiles  uint8
+	AttemptedFiles uint8
+	FailedFiles    uint8
+	QueuedFiles    uint8
 }
 
 type natsProcessor struct {
@@ -134,9 +135,12 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 }
 
 // Process method with optional encryption
-func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
-	stats := Stats{SkippedFiles: 1}
+func (np *natsProcessor) Process(path string, msg types.ScannedFile) (err error) {
+	stats := Stats{AttemptedFiles: 1}
 	defer func() {
+		if err != nil {
+			stats.FailedFiles = 1
+		}
 		if np.statsChan != nil {
 			select {
 			case np.statsChan <- stats:
@@ -186,7 +190,6 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) error {
 	}
 
 	stats.QueuedFiles++
-	stats.SkippedFiles = 0
 
 	return nil
 }

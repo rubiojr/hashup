@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rubiojr/hashup/internal/cache"
@@ -102,48 +103,21 @@ func runScanner(clictx *cli.Context) error {
 		}
 	}
 
-	var fileCount int64
-	// Count and print the number of files to be indexed
-	go func() {
-		tnow := time.Now()
-		fileCount = <-FileCounter(clictx.Context, rootDir).Chan
-		elapsed := time.Since(tnow)
-		log.Debugf("Counted %d files in %s\n", fileCount, elapsed)
-	}()
-
+	fileCache := cache.NewFileCache(100, cfg.Scanner.CachePath)
 	scannerOpts := []scanner.Option{
 		scanner.WithIgnoreList(ignoreList),
 		scanner.WithIgnoreHidden(clictx.Bool("ignore-hidden")),
-		scanner.WithCache(cache.NewFileCache(100, cfg.Scanner.CachePath)),
+		scanner.WithCache(fileCache),
 		scanner.WithCacheNamespace(cacheNamespace),
 		scanner.WithForce(clictx.Bool("force")),
 		scanner.WithScanningConcurrency(concurrency),
 	}
 	scanner := scanner.NewDirectoryScanner(rootDir, scannerOpts...)
 
-	var pCounter int64
-	counterChan := scanner.CounterChan()
-	go func() {
-		for {
-			select {
-			case <-clictx.Done():
-				return
-			case <-counterChan:
-				pCounter++
-				if fileCount != 0 {
-					percent := float64(pCounter) / float64(fileCount) * 100
-					fmt.Printf("Scanned [%d/%d] files (%.0f%%)\r", pCounter, fileCount, percent)
-				} else {
-					fmt.Printf("Scanned %d files\r", pCounter)
-				}
-			}
-		}
-	}()
-
 	var processorOpts []nats.Option
 	statsChan := make(chan nats.Stats, 1000)
-	var processedFiles int64
-	var skippedFiles int64
+	var attemptedFiles int64
+	var failedFiles int64
 	var queuedFiles int64
 	processorOpts = append(
 		processorOpts,
@@ -159,19 +133,6 @@ func runScanner(clictx *cli.Context) error {
 		)
 	}
 
-	go func() {
-		for {
-			select {
-			case <-clictx.Done():
-				return
-			case stats := <-statsChan:
-				processedFiles++
-				skippedFiles += int64(stats.SkippedFiles)
-				queuedFiles += int64(stats.QueuedFiles)
-			}
-		}
-	}()
-
 	ctx, cancel := context.WithCancel(clictx.Context)
 	defer cancel()
 	processor, err := nats.NewNATSProcessor(
@@ -186,20 +147,35 @@ func runScanner(clictx *cli.Context) error {
 		return fmt.Errorf("failed to create NATS processor: %v", err)
 	}
 
+	var statsReaders sync.WaitGroup
+	statsReaders.Add(1)
+	go func() {
+		defer statsReaders.Done()
+		for stats := range statsChan {
+			attemptedFiles += int64(stats.AttemptedFiles)
+			failedFiles += int64(stats.FailedFiles)
+			queuedFiles += int64(stats.QueuedFiles)
+		}
+	}()
+
 	startTime := time.Now()
 	fmt.Printf("Starting directory scan in %s...\n", rootDir)
 	count, scanErr := scanner.ScanDirectory(ctx, processor)
 	processor.Close()
+	close(statsChan)
+	statsReaders.Wait()
 	cancel()
 	if scanErr != nil {
 		log.Errorf("error scanning directory: %v", scanErr)
 	}
 	elapsed := time.Since(startTime)
+	cacheStats := fileCache.GetStats()
 	fmt.Printf("Completed scanning %d files in %q in %v\r\n", count, rootDir, elapsed)
 	fmt.Printf(
-		"Processed %d files, skipped %d files, queued %d files\n",
-		processedFiles,
-		skippedFiles,
+		"Cache hits %d, attempted %d files, failed %d files, queued %d files\n",
+		cacheStats.Hits,
+		attemptedFiles,
+		failedFiles,
 		queuedFiles,
 	)
 

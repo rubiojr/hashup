@@ -337,3 +337,17 @@ func TestDirectoryScannerDefaultsToNoopCache(t *testing.T) {
 	scanner := NewDirectoryScanner(t.TempDir())
 	assert.IsType(t, &cache.NoopCache{}, scanner.cache)
 }
+
+func TestScanDirectoryCountIncludesOnlyEligibleFiles(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "one.txt"), []byte("one"), 0600))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "nested"), 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "nested", "two.txt"), []byte("two"), 0600))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, ".hidden"), 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".hidden", "ignored.txt"), []byte("ignored"), 0600))
+
+	count, err := NewDirectoryScanner(dir).ScanDirectory(context.Background(), &recordingProcessor{})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), count)
+}

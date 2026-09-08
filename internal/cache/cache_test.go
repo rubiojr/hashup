@@ -3,6 +3,7 @@ package cache
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,4 +24,19 @@ func TestFileCacheOnlySavesExplicitly(t *testing.T) {
 	require.NoError(t, fileCache.Save())
 	_, err := os.Stat(cachePath)
 	require.NoError(t, err)
+}
+
+func TestFileCacheStatsAreSafeUnderConcurrentWrites(t *testing.T) {
+	fileCache := NewFileCache(1, "")
+	var workers sync.WaitGroup
+	for range 1000 {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			fileCache.MarkFileProcessed("file", "hash")
+		}()
+	}
+	workers.Wait()
+
+	assert.Equal(t, int64(1000), fileCache.GetStats().Additions)
 }

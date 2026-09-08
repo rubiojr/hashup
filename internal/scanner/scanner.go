@@ -182,9 +182,6 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 			return handleWalkError(rootDir, path, info, err)
 		}
 
-		count++
-		s.incCounter()
-
 		if s.ignoreHidden && info.IsDir() && len(info.Name()) > 1 && info.Name()[0] == '.' {
 			log.Debugf("ignoring hidden directory: %s", path)
 			return filepath.SkipDir
@@ -227,6 +224,9 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 			log.Debugf("ignoring file %s", path)
 			return nil
 		}
+
+		count++
+		s.incCounter()
 
 		f := func() error {
 			if err := ctx.Err(); err != nil {
