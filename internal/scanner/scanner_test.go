@@ -470,3 +470,17 @@ func TestScanDirectoryPreservesFailureRacingCancellation(t *testing.T) {
 	assert.ErrorIs(t, err, processErr)
 	assert.Equal(t, 1, strings.Count(err.Error(), context.Canceled.Error()))
 }
+
+func TestScanDirectoryPreservesTypedFailureRacingCancellation(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file.txt"), []byte("content"), 0600))
+	ctx, cancel := context.WithCancel(context.Background())
+	pathErr := &os.PathError{Op: "publish", Path: "file.txt", Err: errors.New("failed")}
+	processor := &cancelingProcessor{cancel: cancel, err: pathErr}
+
+	_, err := NewDirectoryScanner(dir).ScanDirectory(ctx, processor)
+
+	var returnedPathErr *os.PathError
+	assert.ErrorAs(t, err, &returnedPathErr)
+	assert.ErrorIs(t, err, context.Canceled)
+}

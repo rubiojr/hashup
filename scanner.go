@@ -40,7 +40,7 @@ func runEveryWith(c *cli.Context, scan func(*cli.Context) error) error {
 
 	if err := scan(c); err != nil {
 		if c.Context.Err() != nil {
-			return c.Context.Err()
+			return joinContextError(err, c.Context.Err())
 		}
 		fmt.Fprintf(os.Stderr, "failed to run scanner: %v\n", err)
 	}
@@ -60,7 +60,7 @@ func runEveryWith(c *cli.Context, scan func(*cli.Context) error) error {
 			err := scan(c)
 			if err != nil {
 				if c.Context.Err() != nil {
-					return c.Context.Err()
+					return joinContextError(err, c.Context.Err())
 				}
 				fmt.Fprintf(os.Stderr, "failed to run scanner: %v\n", err)
 			}
@@ -71,6 +71,13 @@ func runEveryWith(c *cli.Context, scan func(*cli.Context) error) error {
 			return c.Context.Err()
 		}
 	}
+}
+
+func joinContextError(err, contextErr error) error {
+	if errors.Is(err, contextErr) {
+		return err
+	}
+	return errors.Join(err, contextErr)
 }
 
 func runScannerCommand(c *cli.Context) error {

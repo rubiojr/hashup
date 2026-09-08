@@ -279,7 +279,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 			log.Debugf("Processing file %s\n", absPath)
 			if err := processor.Process(absPath, msg); err != nil {
 				if contextErr := ctx.Err(); contextErr != nil {
-					err = withoutError(err, contextErr)
+					err, _ = withoutError(err, contextErr)
 					if err == nil {
 						return nil
 					}
@@ -309,23 +309,33 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 	return count, errors.Join(walkErr, errors.Join(pathErrors...), processErr, cacheErr, contextErr)
 }
 
-func withoutError(err, target error) error {
+func withoutError(err, target error) (error, bool) {
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
 		var remaining []error
+		removed := false
 		for _, nested := range joined.Unwrap() {
-			if filtered := withoutError(nested, target); filtered != nil {
+			filtered, nestedRemoved := withoutError(nested, target)
+			removed = removed || nestedRemoved
+			if filtered != nil {
 				remaining = append(remaining, filtered)
 			}
 		}
-		return errors.Join(remaining...)
+		if !removed {
+			return err, false
+		}
+		return errors.Join(remaining...), true
 	}
 	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
-		return withoutError(wrapped.Unwrap(), target)
+		filtered, removed := withoutError(wrapped.Unwrap(), target)
+		if !removed {
+			return err, false
+		}
+		return filtered, true
 	}
 	if errors.Is(err, target) {
-		return nil
+		return nil, true
 	}
-	return err
+	return err, false
 }
 
 func handleWalkError(rootDir, path string, info os.FileInfo, err error) (error, error) {

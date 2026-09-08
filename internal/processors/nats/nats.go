@@ -102,7 +102,10 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 		opt(processor)
 	}
 
-	nopts := []nats.Option{nats.SetCustomDialer(&contextDialer{ctx: ctx, timeout: timeout})}
+	nopts := []nats.Option{
+		nats.SetCustomDialer(&contextDialer{ctx: ctx, timeout: timeout}),
+		nats.SkipHostLookup(),
+	}
 	if timeout > 0 {
 		nopts = append(nopts, nats.Timeout(timeout))
 	}
