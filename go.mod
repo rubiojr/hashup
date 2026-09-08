@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	filippo.io/age v1.3.1
 	github.com/BurntSushi/toml v1.4.0
-	github.com/VictoriaMetrics/fastcache v1.12.2
+	github.com/VictoriaMetrics/fastcache v1.13.3
 	github.com/a-h/templ v0.3.856
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dustin/go-humanize v1.0.1
@@ -26,7 +26,7 @@ require (
 	github.com/antithesishq/antithesis-sdk-go v0.7.2-default-no-op // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/minio/highwayhash v1.0.4 // indirect
