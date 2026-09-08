@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +12,34 @@ import (
 	"github.com/rubiojr/hashup/internal/processors"
 	"github.com/rubiojr/hashup/internal/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+type testCache struct {
+	processed map[string]bool
+}
+
+func (c *testCache) IsFileProcessed(path, hash string) bool {
+	return c.processed[path+hash]
+}
+
+func (c *testCache) MarkFileProcessed(path, hash string) {
+	c.processed[path+hash] = true
+}
+
+func (*testCache) Save() error {
+	return nil
+}
+
+type recordingProcessor struct {
+	calls int
+	err   error
+}
+
+func (p *recordingProcessor) Process(string, types.ScannedFile) error {
+	p.calls++
+	return p.err
+}
 
 func TestScanDirectory(t *testing.T) {
 	// Create a test context
@@ -99,4 +127,25 @@ func TestScanDirectory(t *testing.T) {
 		assert.Equal(t, hostname, file.Hostname)
 		assert.NotEmpty(t, file.Hash, "File hash should not be empty")
 	}
+}
+
+func TestScanDirectoryRetriesFailedProcessing(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "retry.txt"), []byte("retry"), 0600))
+	fileCache := &testCache{processed: make(map[string]bool)}
+
+	failing := &recordingProcessor{err: errors.New("processing failed")}
+	_, err := NewDirectoryScanner(dir, WithCache(fileCache)).ScanDirectory(context.Background(), failing)
+	require.NoError(t, err)
+	require.Equal(t, 1, failing.calls)
+
+	succeeding := &recordingProcessor{}
+	_, err = NewDirectoryScanner(dir, WithCache(fileCache)).ScanDirectory(context.Background(), succeeding)
+	require.NoError(t, err)
+	assert.Equal(t, 1, succeeding.calls, "failed files must be retried on the next scan")
+
+	cached := &recordingProcessor{}
+	_, err = NewDirectoryScanner(dir, WithCache(fileCache)).ScanDirectory(context.Background(), cached)
+	require.NoError(t, err)
+	assert.Zero(t, cached.calls, "successfully processed files should remain cached")
 }

@@ -238,9 +238,8 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 			}
 
 			log.Debugf("Processing file %s\n", absPath)
-			err = processor.Process(absPath, msg)
-			if err != nil {
-				log.Errorf("failed processing %q: %v", absPath, err)
+			if err := processor.Process(absPath, msg); err != nil {
+				return fmt.Errorf("failed processing %q: %w", absPath, err)
 			}
 			log.Debugf("Marking file %s processed\n", absPath)
 			s.cache.MarkFileProcessed(absPath, fileHash)
