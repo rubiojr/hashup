@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -39,6 +39,12 @@ func runEveryWith(c *cli.Context, scan func(*cli.Context) error) error {
 	}
 
 	if err := scan(c); err != nil {
+		if c.Context.Err() != nil {
+			return c.Context.Err()
+		}
+		fmt.Fprintf(os.Stderr, "failed to run scanner: %v\n", err)
+	}
+	if err := c.Context.Err(); err != nil {
 		return err
 	}
 
@@ -48,9 +54,18 @@ func runEveryWith(c *cli.Context, scan func(*cli.Context) error) error {
 	for {
 		select {
 		case <-ticker.C:
+			if err := c.Context.Err(); err != nil {
+				return err
+			}
 			err := scan(c)
 			if err != nil {
+				if c.Context.Err() != nil {
+					return c.Context.Err()
+				}
 				fmt.Fprintf(os.Stderr, "failed to run scanner: %v\n", err)
+			}
+			if err := c.Context.Err(); err != nil {
+				return err
 			}
 		case <-c.Context.Done():
 			return c.Context.Err()
@@ -132,14 +147,9 @@ func runScanner(clictx *cli.Context) error {
 	scanner := scanner.NewDirectoryScanner(rootDir, scannerOpts...)
 
 	var processorOpts []nats.Option
-	statsChan := make(chan nats.Stats, 1000)
-	var attemptedFiles int64
-	var failedFiles int64
-	var queuedFiles int64
 	processorOpts = append(
 		processorOpts,
 		nats.WithEncryptionKey(encryptionKey),
-		nats.WithStatsChannel(statsChan),
 	)
 
 	if cfg.Main.ClientKey != "" {
@@ -164,16 +174,6 @@ func runScanner(clictx *cli.Context) error {
 		return fmt.Errorf("failed to create NATS processor: %v", err)
 	}
 
-	var statsReaders sync.WaitGroup
-	statsReaders.Add(1)
-	go func() {
-		defer statsReaders.Done()
-		for stats := range statsChan {
-			attemptedFiles += int64(stats.AttemptedFiles)
-			failedFiles += int64(stats.FailedFiles)
-			queuedFiles += int64(stats.QueuedFiles)
-		}
-	}()
 	progressChan := scanner.CounterChan()
 	progressDone := make(chan struct{})
 	go func() {
@@ -186,9 +186,7 @@ func runScanner(clictx *cli.Context) error {
 	startTime := time.Now()
 	fmt.Printf("Starting directory scan in %s...\n", rootDir)
 	count, scanErr := scanner.ScanDirectory(ctx, processor)
-	processor.Close()
-	close(statsChan)
-	statsReaders.Wait()
+	closeErr := processor.Close()
 	<-progressDone
 	cancel()
 	if scanErr != nil {
@@ -196,16 +194,17 @@ func runScanner(clictx *cli.Context) error {
 	}
 	elapsed := time.Since(startTime)
 	cacheStats := fileCache.GetStats()
+	processorStats := processor.Stats()
 	fmt.Printf("\rCompleted scanning %d files in %q in %v\r\n", count, rootDir, elapsed)
 	fmt.Printf(
 		"Cache hits %d, attempted %d files, failed %d files, queued %d files\n",
 		cacheStats.Hits,
-		attemptedFiles,
-		failedFiles,
-		queuedFiles,
+		processorStats.AttemptedFiles,
+		processorStats.FailedFiles,
+		processorStats.QueuedFiles,
 	)
 
-	return scanErr
+	return errors.Join(scanErr, closeErr)
 }
 
 func scannerConcurrency(c *cli.Context, cfg *config.Config) (int, error) {

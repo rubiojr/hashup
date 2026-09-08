@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/rubiojr/hashup/internal/types"
 	"github.com/stretchr/testify/assert"
@@ -13,8 +14,8 @@ import (
 func TestNATSProcessorCloseIsNilSafeAndIdempotent(t *testing.T) {
 	processor := &natsProcessor{}
 
-	assert.NotPanics(t, processor.Close)
-	assert.NotPanics(t, processor.Close)
+	assert.NotPanics(t, func() { assert.NoError(t, processor.Close()) })
+	assert.NotPanics(t, func() { assert.NoError(t, processor.Close()) })
 }
 
 type failingCrypto struct{}
@@ -35,9 +36,10 @@ func TestNATSProcessorReportsFailedAttempt(t *testing.T) {
 	stats := <-statsChan
 
 	require.Error(t, err)
-	assert.Equal(t, uint8(1), stats.AttemptedFiles)
-	assert.Equal(t, uint8(1), stats.FailedFiles)
+	assert.Equal(t, uint64(1), stats.AttemptedFiles)
+	assert.Equal(t, uint64(1), stats.FailedFiles)
 	assert.Zero(t, stats.QueuedFiles)
+	assert.Equal(t, stats, processor.Stats())
 }
 
 func TestNATSProcessorReportsStatsWhenContextIsCanceled(t *testing.T) {
@@ -53,5 +55,14 @@ func TestNATSProcessorReportsStatsWhenContextIsCanceled(t *testing.T) {
 
 	require.Error(t, processor.Process("file", types.ScannedFile{}))
 
-	assert.Equal(t, uint8(1), (<-statsChan).FailedFiles)
+	assert.Equal(t, uint64(1), (<-statsChan).FailedFiles)
+}
+
+func TestNewNATSProcessorRejectsCanceledContextBeforeConnecting(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := NewNATSProcessor(ctx, "nats://192.0.2.1:4222", "HASHUP", "FILES", time.Minute)
+
+	assert.ErrorIs(t, err, context.Canceled)
 }

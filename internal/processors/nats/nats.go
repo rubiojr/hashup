@@ -3,7 +3,9 @@ package nats
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -16,9 +18,9 @@ import (
 )
 
 type Stats struct {
-	AttemptedFiles uint8
-	FailedFiles    uint8
-	QueuedFiles    uint8
+	AttemptedFiles uint64
+	FailedFiles    uint64
+	QueuedFiles    uint64
 }
 
 type natsProcessor struct {
@@ -35,6 +37,19 @@ type natsProcessor struct {
 	clientKey   string
 	caCert      string
 	closeOnce   sync.Once
+	closeErr    error
+	attempted   atomic.Uint64
+	failed      atomic.Uint64
+	queued      atomic.Uint64
+}
+
+type contextDialer struct {
+	ctx     context.Context
+	timeout time.Duration
+}
+
+func (d *contextDialer) Dial(network, address string) (net.Conn, error) {
+	return (&net.Dialer{Timeout: d.timeout}).DialContext(d.ctx, network, address)
 }
 
 // Options for configuring the NATS processor
@@ -72,6 +87,9 @@ func WithCACert(cert string) Option {
 
 // Update NewNATSProcessor to use JetStream and support optional encryption
 func NewNATSProcessor(ctx context.Context, url, streamName, subject string, timeout time.Duration, opts ...Option) (*natsProcessor, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	// Create processor with default settings
 	processor := &natsProcessor{
 		ctx:         ctx,
@@ -84,7 +102,7 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 		opt(processor)
 	}
 
-	nopts := []nats.Option{}
+	nopts := []nats.Option{nats.SetCustomDialer(&contextDialer{ctx: ctx, timeout: timeout})}
 	if timeout > 0 {
 		nopts = append(nopts, nats.Timeout(timeout))
 	}
@@ -136,9 +154,11 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 
 // Process method with optional encryption
 func (np *natsProcessor) Process(path string, msg types.ScannedFile) (err error) {
+	np.attempted.Add(1)
 	stats := Stats{AttemptedFiles: 1}
 	defer func() {
 		if err != nil {
+			np.failed.Add(1)
 			stats.FailedFiles = 1
 		}
 		if np.statsChan != nil {
@@ -197,17 +217,27 @@ func (np *natsProcessor) Process(path string, msg types.ScannedFile) (err error)
 	}
 
 	stats.QueuedFiles++
+	np.queued.Add(1)
 
 	return nil
 }
 
 // Close closes the NATS connection
-func (np *natsProcessor) Close() {
+func (np *natsProcessor) Stats() Stats {
+	return Stats{
+		AttemptedFiles: np.attempted.Load(),
+		FailedFiles:    np.failed.Load(),
+		QueuedFiles:    np.queued.Load(),
+	}
+}
+
+func (np *natsProcessor) Close() error {
 	np.closeOnce.Do(func() {
 		if np.nc != nil && !np.nc.IsClosed() {
 			closed := np.nc.StatusChanged(nats.CLOSED)
 			if err := np.nc.Drain(); err != nil {
 				np.nc.Close()
+				np.closeErr = fmt.Errorf("drain NATS connection: %w", err)
 				return
 			}
 			wait := np.timeout
@@ -216,11 +246,16 @@ func (np *natsProcessor) Close() {
 			}
 			select {
 			case <-closed:
+				if err := np.nc.LastError(); err != nil {
+					np.closeErr = fmt.Errorf("drain NATS connection: %w", err)
+				}
 			case <-np.ctx.Done():
 				np.nc.Close()
 			case <-time.After(wait):
 				np.nc.Close()
+				np.closeErr = fmt.Errorf("drain NATS connection: timed out after %s", wait)
 			}
 		}
 	})
+	return np.closeErr
 }

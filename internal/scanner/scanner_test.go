@@ -446,3 +446,27 @@ func TestHandleWalkErrorReportsDescendantFailure(t *testing.T) {
 	assert.NoError(t, directive)
 	assert.ErrorIs(t, reported, walkErr)
 }
+
+type cancelingProcessor struct {
+	cancel context.CancelFunc
+	err    error
+}
+
+func (p *cancelingProcessor) Process(string, types.ScannedFile) error {
+	p.cancel()
+	return p.err
+}
+
+func TestScanDirectoryPreservesFailureRacingCancellation(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file.txt"), []byte("content"), 0600))
+	ctx, cancel := context.WithCancel(context.Background())
+	processErr := errors.New("publish failed")
+	processor := &cancelingProcessor{cancel: cancel, err: errors.Join(context.Canceled, processErr)}
+
+	_, err := NewDirectoryScanner(dir).ScanDirectory(ctx, processor)
+
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.ErrorIs(t, err, processErr)
+	assert.Equal(t, 1, strings.Count(err.Error(), context.Canceled.Error()))
+}

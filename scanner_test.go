@@ -141,6 +141,24 @@ func TestRunEveryRetriesAfterScheduledScanFailure(t *testing.T) {
 	assert.Equal(t, 3, calls)
 }
 
+func TestRunEveryRetriesAfterInitialScanFailure(t *testing.T) {
+	ctx, cancel := periodicScanContext(t, "1ms")
+	defer cancel()
+	calls := 0
+
+	err := runEveryWith(ctx, func(*cli.Context) error {
+		calls++
+		if calls == 1 {
+			return errors.New("initial scan failed")
+		}
+		cancel()
+		return nil
+	})
+
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 2, calls)
+}
+
 func periodicScanContext(t *testing.T, interval string) (*cli.Context, context.CancelFunc) {
 	t.Helper()
 	set := flag.NewFlagSet("test", flag.ContinueOnError)
