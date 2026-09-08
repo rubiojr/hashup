@@ -32,12 +32,14 @@ func (*testCache) Save() error {
 }
 
 type recordingProcessor struct {
-	calls int
-	err   error
+	calls    int
+	err      error
+	messages []types.ScannedFile
 }
 
-func (p *recordingProcessor) Process(string, types.ScannedFile) error {
+func (p *recordingProcessor) Process(_ string, message types.ScannedFile) error {
 	p.calls++
+	p.messages = append(p.messages, message)
 	return p.err
 }
 
@@ -48,6 +50,8 @@ func TestScanDirectory(t *testing.T) {
 
 	// Get the absolute path to testdata/basics
 	testDir := "testdata/basics"
+	absTestDir, err := filepath.Abs(testDir)
+	require.NoError(t, err)
 
 	// Create a channel processor to collect the scanned files
 	chanProcessor := processors.NewChanProcessor()
@@ -84,9 +88,9 @@ func TestScanDirectory(t *testing.T) {
 	<-done
 
 	// Verify the expected files were processed
-	helloPath := filepath.Join(testDir, "hello.txt")
-	fooDirPath := filepath.Join(testDir, "dir", "foo.txt")
-	hiddenFilePath := filepath.Join(testDir, ".hiddenfile")
+	helloPath := filepath.Join(absTestDir, "hello.txt")
+	fooDirPath := filepath.Join(absTestDir, "dir", "foo.txt")
+	hiddenFilePath := filepath.Join(absTestDir, ".hiddenfile")
 
 	// Verify hello.txt was processed
 	helloFile, exists := processedFiles[helloPath]
@@ -174,4 +178,20 @@ func TestScanDirectoryCacheNamespaceAndForce(t *testing.T) {
 	_, err = NewDirectoryScanner(dir, WithCache(fileCache), WithCacheNamespace("destination-b"), WithForce(true)).ScanDirectory(context.Background(), forced)
 	require.NoError(t, err)
 	assert.Equal(t, 1, forced.calls)
+}
+
+func TestScanDirectoryPublishesAbsolutePath(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "file.txt")
+	require.NoError(t, os.WriteFile(file, []byte("content"), 0600))
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	relativeDir, err := filepath.Rel(cwd, dir)
+	require.NoError(t, err)
+
+	processor := &recordingProcessor{}
+	_, err = NewDirectoryScanner(relativeDir, WithCache(&cache.NoopCache{})).ScanDirectory(context.Background(), processor)
+	require.NoError(t, err)
+	require.Len(t, processor.messages, 1)
+	assert.Equal(t, file, processor.messages[0].Path)
 }

@@ -247,7 +247,7 @@ func (s *DirectoryScanner) ScanDirectory(ctx context.Context, processor processo
 
 			// Create the message
 			msg := types.ScannedFile{
-				Path:      path,
+				Path:      absPath,
 				Size:      info.Size(),
 				ModTime:   info.ModTime(),
 				Hash:      fileHash,
