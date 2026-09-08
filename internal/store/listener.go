@@ -225,6 +225,10 @@ func (l *natsListener) Listen(ctx context.Context) error {
 				if l.stats != nil {
 					l.stats.IncrementSkipped()
 				}
+				if err := msg.Nak(); err != nil {
+					log.Errorf("Failed to negatively acknowledge message: %v\n", err)
+				}
+				continue
 			} else if wasWritten.Dirty() {
 				if l.stats != nil {
 					l.stats.IncrementWritten()
@@ -235,7 +239,9 @@ func (l *natsListener) Listen(ctx context.Context) error {
 				}
 			}
 
-			msg.Ack()
+			if err := msg.Ack(); err != nil {
+				log.Errorf("Failed to acknowledge message: %v\n", err)
+			}
 		}
 	}
 }
