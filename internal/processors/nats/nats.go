@@ -10,6 +10,7 @@ import (
 	"github.com/rubiojr/hashup/internal/crypto"
 	"github.com/rubiojr/hashup/internal/errmsg"
 	"github.com/rubiojr/hashup/internal/log"
+	"github.com/rubiojr/hashup/internal/natsstream"
 	"github.com/rubiojr/hashup/internal/types"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -107,25 +108,9 @@ func NewNATSProcessor(ctx context.Context, url, streamName, subject string, time
 	}
 	processor.js = js
 
-	_, err = js.StreamInfo(streamName)
-	if err != nil {
-		// Create the stream if it doesn't exist
-		_, err = js.AddStream(&nats.StreamConfig{
-			Name:              streamName,
-			Subjects:          []string{subject},
-			Storage:           nats.FileStorage,
-			Discard:           nats.DiscardOld,
-			Retention:         nats.WorkQueuePolicy,
-			MaxMsgs:           -1,
-			MaxBytes:          -1,
-			MaxAge:            30 * 24 * time.Hour, // Messages expire after 30 days
-			Replicas:          1,
-			MaxMsgsPerSubject: -1,
-		})
-		if err != nil {
-			nc.Close()
-			return nil, fmt.Errorf("failed to create stream: %v", err)
-		}
+	if err := natsstream.Ensure(js, streamName, subject); err != nil {
+		nc.Close()
+		return nil, fmt.Errorf("failed to ensure stream: %w", err)
 	}
 
 	// If encryption is enabled but no key was provided, generate a random one

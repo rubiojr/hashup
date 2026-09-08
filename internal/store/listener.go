@@ -8,6 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rubiojr/hashup/internal/crypto"
 	"github.com/rubiojr/hashup/internal/log"
+	"github.com/rubiojr/hashup/internal/natsstream"
 	"github.com/rubiojr/hashup/internal/types"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -126,10 +127,8 @@ func (l *natsListener) Listen(ctx context.Context) error {
 		return fmt.Errorf("failed to get JetStream context: %v", err)
 	}
 
-	//_, err = js.StreamInfo(cfg.Main.NatsStream)
-	_, err = js.StreamInfo(l.natsStream)
-	if err != nil {
-		return fmt.Errorf("failed to subscribe to stream: %v", err)
+	if err := natsstream.Ensure(js, l.natsStream, l.natsSubject); err != nil {
+		return fmt.Errorf("failed to ensure stream: %w", err)
 	}
 
 	// Create subscription with the consumer configuration
@@ -138,6 +137,7 @@ func (l *natsListener) Listen(ctx context.Context) error {
 		l.natsConsumer,
 		nats.AckExplicit(),
 		nats.DeliverAll(),
+		nats.BindStream(l.natsStream),
 	)
 
 	if err != nil {
