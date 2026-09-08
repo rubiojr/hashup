@@ -28,6 +28,9 @@ hashup scan ~/Documents # Scan and queue the scanned files to be indexed
 # Requeue unchanged files when rebuilding an index
 hashup scan --force ~/Documents
 
+# Scan immediately, then repeat every hour
+hashup scan --every 1h ~/Documents
+
 # This can run in parallel
 hashup store
 ```

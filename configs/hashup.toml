@@ -14,5 +14,4 @@ stats_interval = 15
 #db_path       = # defaults to ~/.local/share/hashup
 
 [scanner]
-scanning_interval     = 3600
 scanning_concurrency  = 5

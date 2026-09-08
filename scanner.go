@@ -23,9 +23,20 @@ import (
 )
 
 func runEvery(c *cli.Context) error {
+	return runEveryWith(c, runScanner)
+}
+
+func runEveryWith(c *cli.Context, scan func(*cli.Context) error) error {
 	d, err := time.ParseDuration(c.String("every"))
 	if err != nil {
-		return fmt.Errorf("failed to parse duration: %v", err)
+		return fmt.Errorf("failed to parse duration: %w", err)
+	}
+	if d <= 0 {
+		return fmt.Errorf("scan interval must be greater than zero")
+	}
+
+	if err := scan(c); err != nil {
+		return err
 	}
 
 	ticker := time.NewTicker(d)
@@ -34,7 +45,7 @@ func runEvery(c *cli.Context) error {
 	for {
 		select {
 		case <-ticker.C:
-			err := runScanner(c)
+			err := scan(c)
 			if err != nil {
 				log.Errorf("failed to run scanner: %v", err)
 			}

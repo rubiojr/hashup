@@ -36,7 +36,6 @@ type StoreConfig struct {
 
 // ScannerConfig represents the scanner configuration section
 type ScannerConfig struct {
-	ScanningInterval    int    `toml:"scanning_interval"`
 	ScanningConcurrency int    `toml:"scanning_concurrency"`
 	CachePath           string `toml:"cache_path"`
 }
@@ -81,7 +80,6 @@ func DefaultConfig() *Config {
 			DBPath:        DefaultDBPath(),
 		},
 		Scanner: ScannerConfig{
-			ScanningInterval:    3600, // 1 hour in seconds
 			ScanningConcurrency: 5,
 			CachePath:           DefaultCachePath(),
 		},

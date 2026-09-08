@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"testing"
 
 	"github.com/rubiojr/hashup/internal/crypto"
 	"github.com/rubiojr/hashup/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 )
 
 func TestScannerCacheNamespaceTracksDestination(t *testing.T) {
@@ -54,4 +57,45 @@ func TestScannerCacheNamespaceTracksDestination(t *testing.T) {
 	passwordNamespace, err := scannerCacheNamespace(&passwordChanged, "laptop")
 	require.NoError(t, err)
 	assert.Equal(t, baseNamespace, passwordNamespace, "passwords must not be part of cache identity")
+}
+
+func TestRunEveryRejectsNonpositiveInterval(t *testing.T) {
+	for _, interval := range []string{"0s", "-1s"} {
+		t.Run(interval, func(t *testing.T) {
+			ctx, cancel := periodicScanContext(t, interval)
+			defer cancel()
+
+			err := runEveryWith(ctx, func(*cli.Context) error {
+				t.Fatal("scan should not run for an invalid interval")
+				return nil
+			})
+
+			assert.ErrorContains(t, err, "interval must be greater than zero")
+		})
+	}
+}
+
+func TestRunEveryScansImmediately(t *testing.T) {
+	ctx, cancel := periodicScanContext(t, "1h")
+	calls := 0
+
+	err := runEveryWith(ctx, func(*cli.Context) error {
+		calls++
+		cancel()
+		return nil
+	})
+
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, calls)
+}
+
+func periodicScanContext(t *testing.T, interval string) (*cli.Context, context.CancelFunc) {
+	t.Helper()
+	set := flag.NewFlagSet("test", flag.ContinueOnError)
+	set.String("every", "", "")
+	require.NoError(t, set.Set("every", interval))
+	ctx, cancel := context.WithCancel(context.Background())
+	cliContext := cli.NewContext(&cli.App{}, set, nil)
+	cliContext.Context = ctx
+	return cliContext, cancel
 }

@@ -23,7 +23,6 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "FILES", cfg.Main.NatsSubject)
 	assert.Equal(t, 30, cfg.Store.StatsInterval)
 	assert.Equal(t, expectedDBPath, cfg.Store.DBPath)
-	assert.Equal(t, 3600, cfg.Scanner.ScanningInterval)
 	assert.Equal(t, 5, cfg.Scanner.ScanningConcurrency)
 	assert.Equal(t, expectedCachePath, cfg.Scanner.CachePath)
 }
