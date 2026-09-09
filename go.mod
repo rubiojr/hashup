@@ -3,7 +3,7 @@ module github.com/rubiojr/hashup
 go 1.26.0
 
 require (
-	filippo.io/age v1.3.1
+	filippo.io/age v1.3.2
 	github.com/BurntSushi/toml v1.6.0
 	github.com/VictoriaMetrics/fastcache v1.13.3
 	github.com/a-h/templ v0.3.856
