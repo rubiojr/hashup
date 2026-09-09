@@ -9,7 +9,7 @@ require (
 	github.com/a-h/templ v0.3.856
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/go-chi/chi/v5 v5.2.5
+	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-chi/render v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/nats-io/nats-server/v2 v2.14.6
