@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	filippo.io/age v1.3.1
-	github.com/BurntSushi/toml v1.4.0
+	github.com/BurntSushi/toml v1.6.0
 	github.com/VictoriaMetrics/fastcache v1.13.3
 	github.com/a-h/templ v0.3.856
 	github.com/cespare/xxhash/v2 v2.3.0
