@@ -6,7 +6,7 @@ require (
 	filippo.io/age v1.3.2
 	github.com/BurntSushi/toml v1.6.0
 	github.com/VictoriaMetrics/fastcache v1.13.3
-	github.com/a-h/templ v0.3.856
+	github.com/a-h/templ v0.3.1020
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.3.2
