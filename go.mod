@@ -11,7 +11,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-chi/render v1.0.3
-	github.com/mattn/go-sqlite3 v1.14.52
+	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/nats-io/nats-server/v2 v2.14.10
 	github.com/nats-io/nats.go v1.55.0
 	github.com/stretchr/testify v1.12.1
